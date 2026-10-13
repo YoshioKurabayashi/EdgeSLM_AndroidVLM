@@ -1,0 +1,24 @@
+{
+ "tag": "b70_21x30",
+ "variant": "nosrq",
+ "path": "D:\\AI\\source\\n_chap5\\EdgeSLM_AndroidVLM\\work\\feats\\vit_b70_21x30_nosrq_dev.npz",
+ "n_images": 108,
+ "describe": {
+  "strict_no_cpu_fallback": true,
+  "backend": "QNN HTP - EPContext - all nodes",
+  "ctx_retries": 0,
+  "versions": {
+   "onnxruntime": "1.27.0",
+   "ort_api_version": 27,
+   "qnn_runtime": "see manifest (bundled QAIRT set)"
+  },
+  "wall_s": 24.7
+ },
+ "ort_run_ms_median": 193.46153652668,
+ "vs_pc_qdq": {
+  "rel_l2_median": 0.0711988488094889,
+  "rel_l2_max": 0.18726577082383425,
+  "cos_min": 0.9825087046198184,
+  "cos_median": 0.9975106197694215
+ }
+}

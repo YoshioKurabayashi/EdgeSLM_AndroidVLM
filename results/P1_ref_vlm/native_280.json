@@ -1,0 +1,3476 @@
+{
+ "prep": "native",
+ "budget": 280,
+ "srq": true,
+ "device": "cuda",
+ "system_prompt": "画像についての質問に、日本語で簡潔に答えてください。",
+ "results": [
+  {
+   "id": "syn_nav_L",
+   "set": "synth",
+   "tags": [
+    "ocr",
+    "screen"
+   ],
+   "question": "画面に表示されている案内を読んでください。",
+   "answer": "画像に表示されている案内は、以下の通りです。\n\n**300m先 右方向 新宿駅西口**",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true,
+     true,
+     true
+    ]
+   },
+   "n_image_tokens": 280,
+   "prompt_len": 319,
+   "n_patches": 2520,
+   "gen_tokens": 27,
+   "t_first": 0.525,
+   "t_total": 9.963,
+   "image_size": [
+    960,
+    672
+   ]
+  },
+  {
+   "id": "syn_nav_S",
+   "set": "synth",
+   "tags": [
+    "ocr",
+    "screen",
+    "small"
+   ],
+   "question": "画面に表示されている案内を読んでください。",
+   "answer": "画像には、以下の案内が記載されています。\n\n**300m先 右方向 新宿駅西口**",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true,
+     true,
+     true
+    ]
+   },
+   "n_image_tokens": 280,
+   "prompt_len": 319,
+   "n_patches": 2520,
+   "gen_tokens": 25,
+   "t_first": 0.547,
+   "t_total": 9.288,
+   "image_size": [
+    960,
+    672
+   ]
+  },
+  {
+   "id": "car_01a",
+   "set": "car",
+   "tags": [
+    "car",
+    "screen"
+   ],
+   "question": "運転席から見える左側の画面には何が表示されていますか？",
+   "answer": "運転席から見える左側の画面には、**ナビゲーションシステム**が表示されています。\n\n具体的には、地図やルート案内、現在の位置などの情報が表示されていると考えられます。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 303,
+   "n_patches": 2340,
+   "gen_tokens": 37,
+   "t_first": 0.516,
+   "t_total": 13.487,
+   "image_size": [
+    1600,
+    1067
+   ]
+  },
+  {
+   "id": "car_01b",
+   "set": "car",
+   "tags": [
+    "car",
+    "meter",
+    "ocr"
+   ],
+   "question": "メーターの中央に表示されている速度は時速何キロですか？",
+   "answer": "画像に写っているメーターの中央に表示されている速度は、**110.7** です。\n\n単位がキロメートル/時間（km/h）であると仮定すると、時速110.7キロメートルです。",
+   "answer_ref": null,
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 304,
+   "n_patches": 2340,
+   "gen_tokens": 52,
+   "t_first": 0.523,
+   "t_total": 18.921,
+   "image_size": [
+    1600,
+    1067
+   ]
+  },
+  {
+   "id": "vg_00",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "場所はどこになりますか？",
+   "answer": "提供された画像だけでは、**具体的な場所を特定することはできません**。\n\n画像には、白いトラックとサーフボードが写っており、海岸沿いの道路のような場所で撮影されたように見えますが、背景の情報（看板、特定のランドマークなど）が不足しているため、どこで撮影されたのかを",
+   "answer_ref": "車のある屋外の場所",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 302,
+   "n_patches": 2394,
+   "gen_tokens": 64,
+   "t_first": 0.539,
+   "t_total": 23.222,
+   "image_size": [
+    375,
+    500
+   ]
+  },
+  {
+   "id": "vg_01",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "ここはどこですか？",
+   "answer": "提供された画像だけでは、**この場所が具体的にどこであるかを特定することはできません**。\n\n画像は、水辺（池や川）のほとりに、犬が立っている様子を捉えた自然の風景です。\n\nもし、この画像に関する追加情報（例：どこで撮影されたか",
+   "answer_ref": "池のほとりです。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 300,
+   "n_patches": 2394,
+   "gen_tokens": 64,
+   "t_first": 0.507,
+   "t_total": 22.982,
+   "image_size": [
+    500,
+    374
+   ]
+  },
+  {
+   "id": "wild_00",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この写真はどこの国で撮影されましたか？",
+   "answer": "提供された画像だけでは、撮影された国を特定することは**非常に困難**です。\n\nしかし、画像に写っている要素（看板の文字、建築様式、車のナンバープレートの形式など）から、**アジアの都市**、特に**日本**の可能性が高いと推測されます。\n\nもし",
+   "answer_ref": "この写真は日本で撮影されました。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 300,
+   "n_patches": 2340,
+   "gen_tokens": 64,
+   "t_first": 0.534,
+   "t_total": 23.12,
+   "image_size": [
+    870,
+    580
+   ]
+  },
+  {
+   "id": "wild_01",
+   "set": "wild",
+   "tags": [
+    "ocr"
+   ],
+   "question": "この自動販売機にはどのブランドの飲料が含まれていますか？",
+   "answer": "画像に写っている自動販売機には、**KIRIN**の飲料が含まれています。",
+   "answer_ref": "キリンの飲料が含まれています。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 303,
+   "n_patches": 2340,
+   "gen_tokens": 20,
+   "t_first": 0.501,
+   "t_total": 7.533,
+   "image_size": [
+    870,
+    580
+   ]
+  },
+  {
+   "id": "syn_warn_L",
+   "set": "synth",
+   "tags": [
+    "ocr",
+    "screen"
+   ],
+   "question": "表示されている警告の内容は何ですか？",
+   "answer": "画像には、**「警告」**と**「タイヤ空気圧を確認してください」**というメッセージが書かれています。\n\nこれは、**タイヤの空気圧が適切でないため、安全上の問題が発生する可能性がある**ことを知らせる警告です。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true,
+     true,
+     true
+    ]
+   },
+   "n_image_tokens": 280,
+   "prompt_len": 317,
+   "n_patches": 2520,
+   "gen_tokens": 52,
+   "t_first": 0.543,
+   "t_total": 18.078,
+   "image_size": [
+    960,
+    672
+   ]
+  },
+  {
+   "id": "syn_warn_S",
+   "set": "synth",
+   "tags": [
+    "ocr",
+    "screen",
+    "small"
+   ],
+   "question": "表示されている警告の内容は何ですか？",
+   "answer": "画像には、**「警告」**と**「タイヤ空気圧を確認してください」**というメッセージが表示されています。\n\nこれは、**タイヤの空気圧が適切でないため、安全上の問題が発生する可能性がある**ことを知らせる警告です。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true,
+     true,
+     true
+    ]
+   },
+   "n_image_tokens": 280,
+   "prompt_len": 317,
+   "n_patches": 2520,
+   "gen_tokens": 50,
+   "t_first": 0.517,
+   "t_total": 17.795,
+   "image_size": [
+    960,
+    672
+   ]
+  },
+  {
+   "id": "syn_sign",
+   "set": "synth",
+   "tags": [
+    "ocr",
+    "sign"
+   ],
+   "question": "看板には何と書かれていますか？",
+   "answer": "画像には、日本語で「この先工事中 係行」と書かれています。",
+   "answer_ref": null,
+   "judge": {
+    "ok": false,
+    "score": 0.5,
+    "hits": [
+     true,
+     false
+    ]
+   },
+   "n_image_tokens": 280,
+   "prompt_len": 319,
+   "n_patches": 2520,
+   "gen_tokens": 20,
+   "t_first": 0.497,
+   "t_total": 7.163,
+   "image_size": [
+    960,
+    672
+   ]
+  },
+  {
+   "id": "syn_parking",
+   "set": "synth",
+   "tags": [
+    "ocr",
+    "sign",
+    "car"
+   ],
+   "question": "30分あたりの駐車料金はいくらですか？",
+   "answer": "30分あたりの駐車料金は200円です。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 280,
+   "prompt_len": 322,
+   "n_patches": 2520,
+   "gen_tokens": 15,
+   "t_first": 0.491,
+   "t_total": 5.153,
+   "image_size": [
+    960,
+    672
+   ]
+  },
+  {
+   "id": "syn_notice_La",
+   "set": "synth",
+   "tags": [
+    "ocr",
+    "document"
+   ],
+   "question": "点検の日時はいつですか？",
+   "answer": "定期点検の日時は、**10月15日（水）14:00～**です。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true,
+     true
+    ]
+   },
+   "n_image_tokens": 280,
+   "prompt_len": 317,
+   "n_patches": 2520,
+   "gen_tokens": 26,
+   "t_first": 0.523,
+   "t_total": 8.888,
+   "image_size": [
+    960,
+    672
+   ]
+  },
+  {
+   "id": "syn_notice_Lb",
+   "set": "synth",
+   "tags": [
+    "ocr",
+    "document"
+   ],
+   "question": "場所はどこですか？",
+   "answer": "場所は「本社3階 会議室B」です。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true,
+     true
+    ]
+   },
+   "n_image_tokens": 280,
+   "prompt_len": 315,
+   "n_patches": 2520,
+   "gen_tokens": 14,
+   "t_first": 0.521,
+   "t_total": 5.079,
+   "image_size": [
+    960,
+    672
+   ]
+  },
+  {
+   "id": "syn_notice_Sa",
+   "set": "synth",
+   "tags": [
+    "ocr",
+    "document",
+    "small"
+   ],
+   "question": "点検の日時はいつですか？",
+   "answer": "点検の日時は**10月15日（水）14:00～**です。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true,
+     true
+    ]
+   },
+   "n_image_tokens": 280,
+   "prompt_len": 317,
+   "n_patches": 2520,
+   "gen_tokens": 24,
+   "t_first": 0.509,
+   "t_total": 8.431,
+   "image_size": [
+    960,
+    672
+   ]
+  },
+  {
+   "id": "syn_notice_Sb",
+   "set": "synth",
+   "tags": [
+    "ocr",
+    "document",
+    "small"
+   ],
+   "question": "場所はどこですか？",
+   "answer": "場所は「本社3階 会議室B」です。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true,
+     true
+    ]
+   },
+   "n_image_tokens": 280,
+   "prompt_len": 315,
+   "n_patches": 2520,
+   "gen_tokens": 15,
+   "t_first": 0.489,
+   "t_total": 5.25,
+   "image_size": [
+    960,
+    672
+   ]
+  },
+  {
+   "id": "syn_aircon",
+   "set": "synth",
+   "tags": [
+    "ocr",
+    "screen",
+    "car"
+   ],
+   "question": "設定温度は何度ですか？",
+   "answer": "設定温度は **22.5℃** です。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 280,
+   "prompt_len": 316,
+   "n_patches": 2520,
+   "gen_tokens": 13,
+   "t_first": 0.474,
+   "t_total": 4.525,
+   "image_size": [
+    960,
+    672
+   ]
+  },
+  {
+   "id": "syn_train",
+   "set": "synth",
+   "tags": [
+    "ocr",
+    "sign"
+   ],
+   "question": "次の駅はどこですか？",
+   "answer": "画像には駅名「品川 (Shinagawa)」と「2番線」という情報が書かれています。\n\n**次の駅がどこか**を知るためには、**どの駅を起点として、どの路線（JR、地下鉄など）に乗るのか**、あるいは**現在の駅がどこなのか",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 280,
+   "prompt_len": 316,
+   "n_patches": 2520,
+   "gen_tokens": 64,
+   "t_first": 0.5,
+   "t_total": 21.515,
+   "image_size": [
+    960,
+    672
+   ]
+  },
+  {
+   "id": "syn_timetable",
+   "set": "synth",
+   "tags": [
+    "ocr",
+    "document"
+   ],
+   "question": "9時台の電車は何分発ですか？",
+   "answer": "画像には、東京行き時刻表の一部が記載されています。\n\n9時台の電車について、**何分発か**という具体的な情報は、この画像だけでは判断できません。時刻表には、出発時刻や到着時刻、所要時間などが記載されているはずですが、この画像にはその詳細が不足しています",
+   "answer_ref": null,
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false,
+     false
+    ]
+   },
+   "n_image_tokens": 280,
+   "prompt_len": 320,
+   "n_patches": 2520,
+   "gen_tokens": 64,
+   "t_first": 0.467,
+   "t_total": 21.834,
+   "image_size": [
+    960,
+    672
+   ]
+  },
+  {
+   "id": "syn_vertical",
+   "set": "synth",
+   "tags": [
+    "ocr",
+    "sign"
+   ],
+   "question": "何と書かれていますか？",
+   "answer": "画像には、漢字で「**営業中**」と書かれています。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 280,
+   "prompt_len": 317,
+   "n_patches": 2520,
+   "gen_tokens": 17,
+   "t_first": 0.49,
+   "t_total": 6.076,
+   "image_size": [
+    960,
+    672
+   ]
+  },
+  {
+   "id": "syn_paragraph",
+   "set": "synth",
+   "tags": [
+    "ocr",
+    "document",
+    "long"
+   ],
+   "question": "画像の文章をそのまま読み上げてください。",
+   "answer": "本日は道路工事のため、国道20号線の一部区間で片側交互通行となります。通りの際は誘導員の指示に従ってください。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 0.9808,
+    "hits": null
+   },
+   "n_image_tokens": 280,
+   "prompt_len": 318,
+   "n_patches": 2520,
+   "gen_tokens": 30,
+   "t_first": 0.499,
+   "t_total": 10.114,
+   "image_size": [
+    960,
+    672
+   ]
+  },
+  {
+   "id": "car_02a",
+   "set": "car",
+   "tags": [
+    "car",
+    "sign",
+    "ocr"
+   ],
+   "question": "頭上の青い案内標識に書かれている行き先の地名を読んでください。",
+   "answer": "画像に写っている青い案内標識には、以下の地名が書かれています。\n\n* **渋谷 (Shibuya)**\n* **原宿 (Harajuku)**\n* **新宿 (Shinjuku)**\n\n（※標識の文字が少し小さく、一部判読が難しい部分",
+   "answer_ref": null,
+   "judge": {
+    "ok": false,
+    "score": 0.3333,
+    "hits": [
+     false,
+     false,
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 307,
+   "n_patches": 2340,
+   "gen_tokens": 64,
+   "t_first": 0.508,
+   "t_total": 21.534,
+   "image_size": [
+    1600,
+    1067
+   ]
+  },
+  {
+   "id": "car_02b",
+   "set": "car",
+   "tags": [
+    "car"
+   ],
+   "question": "すぐ前を走っている車は何色ですか？",
+   "answer": "画像に写っている車は、**白**です。",
+   "answer_ref": null,
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 300,
+   "n_patches": 2340,
+   "gen_tokens": 13,
+   "t_first": 0.486,
+   "t_total": 4.548,
+   "image_size": [
+    1600,
+    1067
+   ]
+  },
+  {
+   "id": "car_03a",
+   "set": "car",
+   "tags": [
+    "car",
+    "meter",
+    "ocr"
+   ],
+   "question": "メーターに表示されている速度は時速何キロですか？",
+   "answer": "画像に表示されている速度は **7 km/h** です。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 302,
+   "n_patches": 2340,
+   "gen_tokens": 15,
+   "t_first": 0.534,
+   "t_total": 5.328,
+   "image_size": [
+    1600,
+    2400
+   ]
+  },
+  {
+   "id": "car_03b",
+   "set": "car",
+   "tags": [
+    "car",
+    "meter",
+    "ocr"
+   ],
+   "question": "燃料消費率はいくつと表示されていますか？",
+   "answer": "画像によると、燃料消費率は **7.2 km/l** と表示されています。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 299,
+   "n_patches": 2340,
+   "gen_tokens": 19,
+   "t_first": 0.521,
+   "t_total": 6.488,
+   "image_size": [
+    1600,
+    2400
+   ]
+  },
+  {
+   "id": "car_04a",
+   "set": "car",
+   "tags": [
+    "car",
+    "ocr"
+   ],
+   "question": "車体に大きく書かれている4桁の番号は何ですか？",
+   "answer": "車体に大きく書かれている4桁の番号は「**4973**」です。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 302,
+   "n_patches": 2340,
+   "gen_tokens": 21,
+   "t_first": 0.477,
+   "t_total": 7.194,
+   "image_size": [
+    1600,
+    1067
+   ]
+  },
+  {
+   "id": "car_04b",
+   "set": "car",
+   "tags": [
+    "car",
+    "driver_state"
+   ],
+   "question": "車の中の人は何をしているように見えますか？",
+   "answer": "画像から判断すると、車の中の人は**運転している**ように見えます。\n\n（ただし、画像は車内の様子を写しており、運転しているかどうかを断定できるほどの明確な情報はありませんが、運転席にいる人物がいることからそう推測されます。）",
+   "answer_ref": null,
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 301,
+   "n_patches": 2340,
+   "gen_tokens": 57,
+   "t_first": 0.475,
+   "t_total": 19.794,
+   "image_size": [
+    1600,
+    1067
+   ]
+  },
+  {
+   "id": "car_05a",
+   "set": "car",
+   "tags": [
+    "car",
+    "ocr"
+   ],
+   "question": "右上の緑色の表示には何と書かれていますか？",
+   "answer": "画像右上の緑色の表示には、「充電 OK」と書かれています。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 303,
+   "n_patches": 2340,
+   "gen_tokens": 17,
+   "t_first": 0.512,
+   "t_total": 5.783,
+   "image_size": [
+    1600,
+    1067
+   ]
+  },
+  {
+   "id": "car_05b",
+   "set": "car",
+   "tags": [
+    "car"
+   ],
+   "question": "これはどんな種類の車の車内ですか？",
+   "answer": "提供された画像は、**乗用車（乗用車）の車内**です。\n\n特に、日本の車種のように見え、運転席と助手席のシート、ダッシュボード、フロントガラス、そして車内の内装が確認できます。",
+   "answer_ref": null,
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 298,
+   "n_patches": 2340,
+   "gen_tokens": 54,
+   "t_first": 0.495,
+   "t_total": 18.601,
+   "image_size": [
+    1600,
+    1067
+   ]
+  },
+  {
+   "id": "car_06a",
+   "set": "car",
+   "tags": [
+    "car",
+    "driver_state"
+   ],
+   "question": "運転席に座っている人は手に何を持っていますか？",
+   "answer": "運転席に座っている人は、**スマートフォン**を持っています。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 302,
+   "n_patches": 2340,
+   "gen_tokens": 14,
+   "t_first": 0.477,
+   "t_total": 4.716,
+   "image_size": [
+    1600,
+    1067
+   ]
+  },
+  {
+   "id": "car_07a",
+   "set": "car",
+   "tags": [
+    "car",
+    "driver_state"
+   ],
+   "question": "運転席の男性はどのような様子ですか？",
+   "answer": "運転席の男性は、**頭を両手で抱え、何か悩みや疲労、あるいは深い考えに耽っている**ような様子です。表情は読み取りにくいですが、リラックスしているというよりは、内省的で少し憂鬱な、あるいは疲れているように見えます。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 264,
+   "prompt_len": 303,
+   "n_patches": 2376,
+   "gen_tokens": 63,
+   "t_first": 0.491,
+   "t_total": 21.467,
+   "image_size": [
+    1600,
+    900
+   ]
+  },
+  {
+   "id": "car_08a",
+   "set": "car",
+   "tags": [
+    "car"
+   ],
+   "question": "これは何の座席ですか？",
+   "answer": "これは**ゲーミングチェア**です。\n\n特に、ゲームや長時間座って作業するための快適さと機能性を重視したデザインの椅子です。",
+   "answer_ref": null,
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 296,
+   "n_patches": 2340,
+   "gen_tokens": 30,
+   "t_first": 0.515,
+   "t_total": 10.33,
+   "image_size": [
+    1600,
+    2400
+   ]
+  },
+  {
+   "id": "car_08b",
+   "set": "car",
+   "tags": [
+    "car"
+   ],
+   "question": "座席の上に置かれているものは何ですか？",
+   "answer": "画像には、**ピンク色の大きなぬいぐるみ（またはキャラクターのぬいぐるみ）**が座席の上に置かれています。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 299,
+   "n_patches": 2340,
+   "gen_tokens": 24,
+   "t_first": 0.523,
+   "t_total": 8.219,
+   "image_size": [
+    1600,
+    2400
+   ]
+  },
+  {
+   "id": "car_09a",
+   "set": "car",
+   "tags": [
+    "car",
+    "traffic_light"
+   ],
+   "question": "信号機は何色が点灯していますか？",
+   "answer": "画像に写っている信号機は、**赤色**に点灯しています。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 299,
+   "n_patches": 2340,
+   "gen_tokens": 18,
+   "t_first": 0.563,
+   "t_total": 6.164,
+   "image_size": [
+    1600,
+    1067
+   ]
+  },
+  {
+   "id": "car_10a",
+   "set": "car",
+   "tags": [
+    "car",
+    "weather"
+   ],
+   "question": "路面はどのような状態ですか？",
+   "answer": "路面は**濡れており、水たまりや光の反射が見られます**。雨が降った後か、路面が濡れている状態です。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 297,
+   "n_patches": 2340,
+   "gen_tokens": 35,
+   "t_first": 0.496,
+   "t_total": 11.967,
+   "image_size": [
+    1600,
+    1067
+   ]
+  },
+  {
+   "id": "car_10b",
+   "set": "car",
+   "tags": [
+    "car"
+   ],
+   "question": "昼と夜のどちらですか？",
+   "answer": "画像は**夜**です。\n\n理由：\n*   街灯や車のヘッドライト、建物の窓の明かりが目立ちます。\n*   道路が濡れており、光が反射しています。\n*   全体的に暗い背景と、人工的な光が支配的です。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 297,
+   "n_patches": 2340,
+   "gen_tokens": 64,
+   "t_first": 0.474,
+   "t_total": 21.525,
+   "image_size": [
+    1600,
+    1067
+   ]
+  },
+  {
+   "id": "car_11a",
+   "set": "car",
+   "tags": [
+    "car"
+   ],
+   "question": "この車は今どこを走っていますか？",
+   "answer": "提供された画像だけでは、その車が**具体的にどこを走っているのかを特定することはできません**。\n\n画像は、トンネルの出口から外の道路を見下ろすような構図であり、車が道路を走行している様子が写っていますが、周囲の風景や道路標識など",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 264,
+   "prompt_len": 304,
+   "n_patches": 2376,
+   "gen_tokens": 64,
+   "t_first": 0.489,
+   "t_total": 21.877,
+   "image_size": [
+    1600,
+    900
+   ]
+  },
+  {
+   "id": "car_12a",
+   "set": "car",
+   "tags": [
+    "car",
+    "pedestrian"
+   ],
+   "question": "横断歩道の上には何がいますか？",
+   "answer": "横断歩道の上には、**一人の男性**が立っています。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 307,
+   "n_patches": 2394,
+   "gen_tokens": 17,
+   "t_first": 0.481,
+   "t_total": 5.788,
+   "image_size": [
+    1600,
+    2193
+   ]
+  },
+  {
+   "id": "car_12b",
+   "set": "car",
+   "tags": [
+    "car"
+   ],
+   "question": "左側に停まっている車は何色ですか？",
+   "answer": "左側に停まっている車は**赤**です。",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 305,
+   "n_patches": 2394,
+   "gen_tokens": 12,
+   "t_first": 0.472,
+   "t_total": 4.223,
+   "image_size": [
+    1600,
+    2193
+   ]
+  },
+  {
+   "id": "car_13a",
+   "set": "car",
+   "tags": [
+    "car",
+    "weather"
+   ],
+   "question": "天気はどうですか？",
+   "answer": "画像は、雨や雪が降る都市の通りを捉えた写真です。\n\n**天気について:**\n画像から判断すると、**雨または雪が降っている**状況です。空の様子が直接見えませんが、地面や空気中に水滴（または雪の結晶）が落ちている",
+   "answer_ref": null,
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 294,
+   "n_patches": 2340,
+   "gen_tokens": 64,
+   "t_first": 0.516,
+   "t_total": 21.795,
+   "image_size": [
+    1600,
+    2400
+   ]
+  },
+  {
+   "id": "vg_02",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "ベッドは何台ありますか？",
+   "answer": "画像には**1台**のベッドが見えます。",
+   "answer_ref": "１台",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 302,
+   "n_patches": 2394,
+   "gen_tokens": 12,
+   "t_first": 0.508,
+   "t_total": 4.349,
+   "image_size": [
+    500,
+    375
+   ]
+  },
+  {
+   "id": "vg_03",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "画像に写っている建物はどこの国にありますか",
+   "answer": "提供された画像だけでは、建物の国を特定することは**できません**。\n\n画像にはレストラン（Cafe Elat）の看板と、店内の様子が写っていますが、建築様式やその他の特徴から特定の国を断定できるほどの明確な情報はありません。",
+   "answer_ref": "アメリカ",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 252,
+   "prompt_len": 294,
+   "n_patches": 2268,
+   "gen_tokens": 57,
+   "t_first": 0.536,
+   "t_total": 19.536,
+   "image_size": [
+    397,
+    500
+   ]
+  },
+  {
+   "id": "vg_04",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "動物の姿は、いくつ見えますか？。",
+   "answer": "画像には**2頭**の象が見えます。",
+   "answer_ref": "２頭です。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 301,
+   "n_patches": 2340,
+   "gen_tokens": 12,
+   "t_first": 0.508,
+   "t_total": 4.255,
+   "image_size": [
+    500,
+    332
+   ]
+  },
+  {
+   "id": "vg_05",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "標識はいくつありますか？",
+   "answer": "画像には、**3つ**の標識が見えます。\n\n1. **道路標識（上部）**: 道路番号（例: 50th, 930）と「Stanford」などの情報が書かれた緑色の標識。\n2. **停止標識（中央",
+   "answer_ref": "3つ",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 303,
+   "n_patches": 2394,
+   "gen_tokens": 64,
+   "t_first": 0.481,
+   "t_total": 22.037,
+   "image_size": [
+    375,
+    500
+   ]
+  },
+  {
+   "id": "vg_06",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "全部で何人の人がいますか？",
+   "answer": "画像には**3人**の人がいます。",
+   "answer_ref": "3人",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 272,
+   "prompt_len": 310,
+   "n_patches": 2448,
+   "gen_tokens": 11,
+   "t_first": 0.547,
+   "t_total": 4.108,
+   "image_size": [
+    500,
+    464
+   ]
+  },
+  {
+   "id": "vg_07",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "この人の性別は何ですか",
+   "answer": "画像から判断すると、この人の性別は**女性**です。",
+   "answer_ref": "女性",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 302,
+   "n_patches": 2394,
+   "gen_tokens": 16,
+   "t_first": 0.486,
+   "t_total": 5.709,
+   "image_size": [
+    500,
+    375
+   ]
+  },
+  {
+   "id": "vg_08",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "ベッドはいくつありますか？",
+   "answer": "画像には**1つ**のベッドが見えます。",
+   "answer_ref": "３つ",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 302,
+   "n_patches": 2394,
+   "gen_tokens": 12,
+   "t_first": 0.533,
+   "t_total": 4.311,
+   "image_size": [
+    500,
+    375
+   ]
+  },
+  {
+   "id": "vg_09",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "背景はどんな色ですか？",
+   "answer": "画像はモノクロ（白黒）で、背景は**暗い、または黒に近い色**です。",
+   "answer_ref": "黒色",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 296,
+   "n_patches": 2340,
+   "gen_tokens": 24,
+   "t_first": 0.525,
+   "t_total": 8.437,
+   "image_size": [
+    500,
+    333
+   ]
+  },
+  {
+   "id": "vg_10",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "前の建物の入り口はいくつありますか？",
+   "answer": "提供された画像だけでは、建物の入り口の正確な数を特定することはできません。\n\n画像に写っている建物は、フランスの**ノートルダム大聖堂**のように見えますが、入り口の数については、建物の正面や側面を詳しく確認する必要があります。\n\nもし、特定の建物について知",
+   "answer_ref": "３つ",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 300,
+   "n_patches": 2340,
+   "gen_tokens": 64,
+   "t_first": 0.525,
+   "t_total": 22.482,
+   "image_size": [
+    334,
+    500
+   ]
+  },
+  {
+   "id": "vg_11",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "芝生の上にいる動物は何ですか？",
+   "answer": "画像には、芝生の上に**鳥**がいくつかいるように見えます。",
+   "answer_ref": "鳥",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 304,
+   "n_patches": 2394,
+   "gen_tokens": 17,
+   "t_first": 0.607,
+   "t_total": 6.53,
+   "image_size": [
+    800,
+    600
+   ]
+  },
+  {
+   "id": "vg_12",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "男性はどんな髪型ですか。",
+   "answer": "画像に写っている男性の髪型は、**短く整えられた、少し動きのあるスタイル**です。\n\n具体的には、**サイドとトップは短く刈り込まれ、全体的にすっきりとまとめた、クラシックで清潔感のあるスタイル**と言えます。",
+   "answer_ref": "ショートヘアです。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 297,
+   "n_patches": 2340,
+   "gen_tokens": 60,
+   "t_first": 0.504,
+   "t_total": 20.898,
+   "image_size": [
+    333,
+    500
+   ]
+  },
+  {
+   "id": "vg_13",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "自転車に乗っている人の服は何色ですか？",
+   "answer": "自転車に乗っている人の服は、**オレンジ色**です。",
+   "answer_ref": "青色",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 305,
+   "n_patches": 2394,
+   "gen_tokens": 14,
+   "t_first": 0.507,
+   "t_total": 4.966,
+   "image_size": [
+    800,
+    600
+   ]
+  },
+  {
+   "id": "vg_14",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "どんな乗り物が走っていますか？",
+   "answer": "画像には、**赤いトラック**が走っています。",
+   "answer_ref": "大型トラック",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 303,
+   "n_patches": 2394,
+   "gen_tokens": 12,
+   "t_first": 0.486,
+   "t_total": 4.281,
+   "image_size": [
+    500,
+    375
+   ]
+  },
+  {
+   "id": "vg_15",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "室内ですか室外ですか",
+   "answer": "画像には、ノートパソコンが机の上に置かれている様子が写っています。**室内**の環境であると推測されます。",
+   "answer_ref": "室内",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 301,
+   "n_patches": 2394,
+   "gen_tokens": 27,
+   "t_first": 0.509,
+   "t_total": 9.374,
+   "image_size": [
+    500,
+    375
+   ]
+  },
+  {
+   "id": "vg_16",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "手前でジャンプしている少年の前には何がありますか？",
+   "answer": "画像には、**コンクリートの階段や段差**が写っています。",
+   "answer_ref": "スケートボード",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 304,
+   "n_patches": 2340,
+   "gen_tokens": 18,
+   "t_first": 0.511,
+   "t_total": 6.309,
+   "image_size": [
+    500,
+    334
+   ]
+  },
+  {
+   "id": "vg_17",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "ここはどこですか？",
+   "answer": "提供された画像だけでは、**この場所が具体的にどこであるかを特定することはできません。**\n\n画像は、**砂浜**のような場所で、**霧や曇り空**のような雰囲気の中で、**犬**が立っている様子を捉えたものです。\n\nもし、この画像に関する追加の情報（",
+   "answer_ref": "屋外",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 294,
+   "n_patches": 2340,
+   "gen_tokens": 64,
+   "t_first": 0.509,
+   "t_total": 21.608,
+   "image_size": [
+    500,
+    333
+   ]
+  },
+  {
+   "id": "vg_18",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "画像に写っているのはどこですか？",
+   "answer": "画像には、**スーパーマーケットの野菜売り場**のような場所が写っています。\n\n具体的には、様々な種類の野菜や果物が陳列されている棚が見えます。",
+   "answer_ref": "店内",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 304,
+   "n_patches": 2394,
+   "gen_tokens": 35,
+   "t_first": 0.499,
+   "t_total": 12.15,
+   "image_size": [
+    500,
+    375
+   ]
+  },
+  {
+   "id": "vg_19",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "どんな天気ですか？",
+   "answer": "画像から判断すると、**晴れ**のようです。空は明るく、日差しが強いように見えます。",
+   "answer_ref": "晴れです。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 300,
+   "n_patches": 2394,
+   "gen_tokens": 26,
+   "t_first": 0.521,
+   "t_total": 9.012,
+   "image_size": [
+    386,
+    500
+   ]
+  },
+  {
+   "id": "vg_20",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "ここはどこですか？",
+   "answer": "提供された画像だけでは、**この場所が具体的にどこであるかを特定することはできません。**\n\n画像には、都市の道路、バス、高層ビルが写っていますが、特定のランドマークや詳細な情報が不足しているためです。\n\nもし、この画像に関する追加の情報（例えば、看板の",
+   "answer_ref": "とある市街地の道路の一角です。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 300,
+   "n_patches": 2394,
+   "gen_tokens": 64,
+   "t_first": 0.505,
+   "t_total": 22.166,
+   "image_size": [
+    500,
+    375
+   ]
+  },
+  {
+   "id": "vg_21",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "これは何ですか？",
+   "answer": "画像には、水辺にいる**カモメ**のような鳥が写っています。",
+   "answer_ref": "鳥です。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 300,
+   "n_patches": 2394,
+   "gen_tokens": 19,
+   "t_first": 0.481,
+   "t_total": 6.542,
+   "image_size": [
+    500,
+    363
+   ]
+  },
+  {
+   "id": "vg_22",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "トラックは何台ありますか？",
+   "answer": "画像には**1台**のトラックが見えます。",
+   "answer_ref": "1台",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 302,
+   "n_patches": 2394,
+   "gen_tokens": 12,
+   "t_first": 0.491,
+   "t_total": 4.253,
+   "image_size": [
+    270,
+    360
+   ]
+  },
+  {
+   "id": "vg_23",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "どこで撮られた画像ですか?",
+   "answer": "提供された画像だけでは、**この画像がどこで撮られたかを特定することはできません。**\n\n画像には、雪の風景、屋外での活動をしている人々、そして雪の積もった環境が写っていますが、特定の場所を示すランドマークや特徴的な背景情報が不足しています。",
+   "answer_ref": "雪道",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 303,
+   "n_patches": 2394,
+   "gen_tokens": 61,
+   "t_first": 0.494,
+   "t_total": 20.697,
+   "image_size": [
+    500,
+    375
+   ]
+  },
+  {
+   "id": "vg_24",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "写真に写っているものは何ですか",
+   "answer": "写真には、**蒸気機関車**が写っています。",
+   "answer_ref": "汽車",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 297,
+   "n_patches": 2340,
+   "gen_tokens": 14,
+   "t_first": 0.531,
+   "t_total": 4.988,
+   "image_size": [
+    500,
+    333
+   ]
+  },
+  {
+   "id": "vg_25",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "ここはどこですか？",
+   "answer": "画像には、屋外のテニスコートのような場所で、男性がバレーボールのようなボールを打っている様子が写っています。\n\n**「ここはどこですか？」** というご質問ですが、**この画像だけから具体的な場所を特定することはできません。**\n\nこれは、屋外のコートでスポーツをしているシーン",
+   "answer_ref": "テニスコート",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 294,
+   "n_patches": 2340,
+   "gen_tokens": 64,
+   "t_first": 0.482,
+   "t_total": 22.234,
+   "image_size": [
+    333,
+    500
+   ]
+  },
+  {
+   "id": "vg_26",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "屋外と屋内のうち、どこで撮られたものですか？",
+   "answer": "提供された画像は、**屋内**で撮影されたものです。",
+   "answer_ref": "屋内",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 309,
+   "n_patches": 2394,
+   "gen_tokens": 14,
+   "t_first": 0.511,
+   "t_total": 5.125,
+   "image_size": [
+    500,
+    357
+   ]
+  },
+  {
+   "id": "vg_27",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "何色の果物が実っていますか？",
+   "answer": "オレンジ色の果物が実っています。",
+   "answer_ref": "黄色",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 298,
+   "n_patches": 2340,
+   "gen_tokens": 8,
+   "t_first": 0.52,
+   "t_total": 2.869,
+   "image_size": [
+    500,
+    332
+   ]
+  },
+  {
+   "id": "vg_28",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "何がありますか？",
+   "answer": "画像には、**飛行場**と**航空機**が写っています。\n\n具体的には、以下のものが確認できます。\n\n1. **広大な駐機場（滑走路や駐機場）**: 多くの航空機が駐機している様子が見られます。\n2. **航空機**: 駐機している",
+   "answer_ref": "空港があります。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 300,
+   "n_patches": 2394,
+   "gen_tokens": 64,
+   "t_first": 0.558,
+   "t_total": 22.14,
+   "image_size": [
+    500,
+    375
+   ]
+  },
+  {
+   "id": "vg_29",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "女性はどんなスポーツをしていますか",
+   "answer": "画像から判断すると、女性は**ランニング**または**ジョギング**をしているように見えます。",
+   "answer_ref": "テニス",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 297,
+   "n_patches": 2340,
+   "gen_tokens": 23,
+   "t_first": 0.517,
+   "t_total": 7.99,
+   "image_size": [
+    500,
+    333
+   ]
+  },
+  {
+   "id": "vg_30",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "誰か人はいますか",
+   "answer": "画像には**一人の人物**が写っています。\n\nその人物は、波に乗ってサーフィンをしているように見えます。",
+   "answer_ref": "います",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 295,
+   "n_patches": 2340,
+   "gen_tokens": 27,
+   "t_first": 0.499,
+   "t_total": 9.447,
+   "image_size": [
+    500,
+    333
+   ]
+  },
+  {
+   "id": "vg_31",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "器は全部でいくつありますか？",
+   "answer": "画像には、**5つ**の容器（ボウルや容器）があります。\n\n1. バナナの皮が入った容器\n2. 小麦（または穀物）が入った容器\n3. 煮込み料理が入った容器\n4. 人参が入った容器\n5. ブロッコ",
+   "answer_ref": "４つ",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 304,
+   "n_patches": 2394,
+   "gen_tokens": 64,
+   "t_first": 0.469,
+   "t_total": 21.935,
+   "image_size": [
+    500,
+    375
+   ]
+  },
+  {
+   "id": "vg_32",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "室内ですか室外ですか",
+   "answer": "画像は**室外**です。",
+   "answer_ref": "室外",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 295,
+   "n_patches": 2340,
+   "gen_tokens": 9,
+   "t_first": 0.467,
+   "t_total": 3.211,
+   "image_size": [
+    500,
+    333
+   ]
+  },
+  {
+   "id": "vg_33",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "天気はどうですか？",
+   "answer": "画像から判断すると、**波が立っており、水しぶきが上がっている**状況です。\n\n天気についてですが、画像だけでは**具体的な天候（晴れ、曇り、雨など）を断定することはできません**。しかし、水面が青く、波が立っていることから",
+   "answer_ref": "晴れ",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 294,
+   "n_patches": 2340,
+   "gen_tokens": 64,
+   "t_first": 0.491,
+   "t_total": 21.908,
+   "image_size": [
+    500,
+    333
+   ]
+  },
+  {
+   "id": "vg_34",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "宙に浮いている男性は足に何をつけていますか",
+   "answer": "画像に写っている男性は、**スキー板**を履いています。",
+   "answer_ref": "スキー板",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 302,
+   "n_patches": 2340,
+   "gen_tokens": 16,
+   "t_first": 0.533,
+   "t_total": 5.516,
+   "image_size": [
+    683,
+    1024
+   ]
+  },
+  {
+   "id": "vg_35",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "台は何色ですか",
+   "answer": "画像には、**ピザ**が写っています。\n\nピザの主な色は、**茶色**（生地）、**赤**（トマトソース）、**黄色/白**（チーズ）、そして**緑**（ハーブ）などが混ざっています。",
+   "answer_ref": "銀色",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 300,
+   "n_patches": 2394,
+   "gen_tokens": 54,
+   "t_first": 0.481,
+   "t_total": 18.535,
+   "image_size": [
+    375,
+    500
+   ]
+  },
+  {
+   "id": "vg_36",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "皿の色は何ですか？",
+   "answer": "皿の色は**白**です。",
+   "answer_ref": "白",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 301,
+   "n_patches": 2394,
+   "gen_tokens": 9,
+   "t_first": 0.51,
+   "t_total": 3.214,
+   "image_size": [
+    500,
+    375
+   ]
+  },
+  {
+   "id": "vg_37",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "左側に積まれている物は何ですか？",
+   "answer": "左側に積まれているのは、**トマト**です。",
+   "answer_ref": "トマト",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 255,
+   "prompt_len": 294,
+   "n_patches": 2295,
+   "gen_tokens": 13,
+   "t_first": 0.484,
+   "t_total": 4.748,
+   "image_size": [
+    1024,
+    898
+   ]
+  },
+  {
+   "id": "vg_38",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "人は何人写っていますか？",
+   "answer": "画像には**1人**の人物が写っています。",
+   "answer_ref": "1人",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 256,
+   "prompt_len": 293,
+   "n_patches": 2304,
+   "gen_tokens": 13,
+   "t_first": 0.502,
+   "t_total": 4.565,
+   "image_size": [
+    500,
+    500
+   ]
+  },
+  {
+   "id": "vg_39",
+   "set": "vg",
+   "tags": [
+    "general"
+   ],
+   "question": "動物は何頭見えますか？",
+   "answer": "画像には**1頭**の動物（カバ）が見えます。",
+   "answer_ref": "1",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 303,
+   "n_patches": 2394,
+   "gen_tokens": 16,
+   "t_first": 0.488,
+   "t_total": 5.617,
+   "image_size": [
+    500,
+    375
+   ]
+  },
+  {
+   "id": "wild_02",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この写真に写っている有名な建物の名前は何ですか？",
+   "answer": "この写真に写っている有名な建物は、**東京タワー**です。",
+   "answer_ref": "東京タワーです。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 272,
+   "prompt_len": 314,
+   "n_patches": 2448,
+   "gen_tokens": 17,
+   "t_first": 0.518,
+   "t_total": 5.972,
+   "image_size": [
+    836,
+    906
+   ]
+  },
+  {
+   "id": "wild_03",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この写真にはどんな植物が映っていますか？",
+   "answer": "この写真には、**桜**が映っています。",
+   "answer_ref": "桜の花が映っています。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 300,
+   "n_patches": 2340,
+   "gen_tokens": 12,
+   "t_first": 0.489,
+   "t_total": 4.12,
+   "image_size": [
+    987,
+    1481
+   ]
+  },
+  {
+   "id": "wild_04",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この写真に写っているタワーは何ですか？",
+   "answer": "この写真に写っているタワーは、**東京タワー**です。",
+   "answer_ref": "この写真には東京スカイツリーが写っています。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 300,
+   "n_patches": 2340,
+   "gen_tokens": 17,
+   "t_first": 0.482,
+   "t_total": 5.944,
+   "image_size": [
+    987,
+    1481
+   ]
+  },
+  {
+   "id": "wild_05",
+   "set": "wild",
+   "tags": [
+    "ocr"
+   ],
+   "question": "この駅は何線のものですか？",
+   "answer": "提供された画像だけでは、この駅がどの路線のものであるかを特定することは**できません**。\n\n画像には駅のプラットフォームや線路の一部が見えるものの、駅名、路線名を示す明確な標識や特徴的な設備が不足しています。\n\nもし、この画像に関する**追加情報**（",
+   "answer_ref": "画像から正確な路線名は読み取れませんが、京都へ行く電車のある駅であることが分かります。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 297,
+   "n_patches": 2340,
+   "gen_tokens": 64,
+   "t_first": 0.478,
+   "t_total": 21.952,
+   "image_size": [
+    870,
+    581
+   ]
+  },
+  {
+   "id": "wild_06",
+   "set": "wild",
+   "tags": [
+    "ocr"
+   ],
+   "question": "この駅のホームには何番線がありますか？",
+   "answer": "画像には、ホームに**1番線**と**2番線**の表示が見られます。",
+   "answer_ref": "1番線と2番線があります。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true,
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 301,
+   "n_patches": 2340,
+   "gen_tokens": 22,
+   "t_first": 0.473,
+   "t_total": 7.489,
+   "image_size": [
+    870,
+    581
+   ]
+  },
+  {
+   "id": "wild_07",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "画像に何が見えますか？",
+   "answer": "この画像には、木製の壁、窓、そしてその前に置かれた木製のベンチと、その上に野菜（キュウリ、トマト、玉ねぎなど）が置かれている様子が写っています。また、壁には和紙のようなものや、看板のようなものが見えます。全体的に、日本の",
+   "answer_ref": "日本の伝統的な建物の前に野菜と果物が置かれてある光景が見えます。店の前には、レモンやトマト、ネギなどが置いてあり、提灯とメニューが掲げられています。",
+   "judge": {
+    "ok": null,
+    "score": null,
+    "hits": null
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 297,
+   "n_patches": 2340,
+   "gen_tokens": 64,
+   "t_first": 0.514,
+   "t_total": 22.071,
+   "image_size": [
+    870,
+    580
+   ]
+  },
+  {
+   "id": "wild_08",
+   "set": "wild",
+   "tags": [
+    "count"
+   ],
+   "question": "この画像には何個の提灯がありますか？",
+   "answer": "画像には**9個**の提灯があります。",
+   "answer_ref": "15個の提灯があります。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 301,
+   "n_patches": 2340,
+   "gen_tokens": 12,
+   "t_first": 0.476,
+   "t_total": 4.144,
+   "image_size": [
+    976,
+    1509
+   ]
+  },
+  {
+   "id": "wild_09",
+   "set": "wild",
+   "tags": [
+    "ocr"
+   ],
+   "question": "この自動販売機にはどんな種類の飲み物がありますか？",
+   "answer": "画像から判断すると、この自動販売機には**コカ・コーラ**などの**炭酸飲料**が主な種類として販売されているようです。\n\n具体的には、棚には様々な種類の飲料のボトルや缶が並んでおり、特にコカ・コーラ製品が目立ちます。",
+   "answer_ref": "この自動販売機にはコーヒー、お茶、ジュース、スポーツドリンク、ミルクティーがあります。",
+   "judge": {
+    "ok": null,
+    "score": null,
+    "hits": null
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 302,
+   "n_patches": 2340,
+   "gen_tokens": 62,
+   "t_first": 0.484,
+   "t_total": 20.982,
+   "image_size": [
+    874,
+    580
+   ]
+  },
+  {
+   "id": "wild_10",
+   "set": "wild",
+   "tags": [
+    "ocr",
+    "sign",
+    "car"
+   ],
+   "question": "この画像に写っている道路の制限速度は何キロメートルですか？",
+   "answer": "画像には道路標識があり、速度制限が示されています。\n\n道路標識には「**30**」と表示されており、これは**30 km/h**を意味します。",
+   "answer_ref": "30キロメートルです。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 252,
+   "prompt_len": 296,
+   "n_patches": 2268,
+   "gen_tokens": 41,
+   "t_first": 0.467,
+   "t_total": 13.988,
+   "image_size": [
+    928,
+    1160
+   ]
+  },
+  {
+   "id": "wild_11",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この店は主にどんな商品を扱っていますか？",
+   "answer": "画像から判断すると、この店は**コンビニエンスストア**のようなもので、**食料品や日用品**などを扱っている可能性が高いです。\n\n看板には「きむ屋」と書かれており、店舗の様子から、日常的に利用できる商品が揃っていることが伺えます。",
+   "answer_ref": "この店はゲームやおもちゃを扱っているようです。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 300,
+   "n_patches": 2340,
+   "gen_tokens": 62,
+   "t_first": 0.531,
+   "t_total": 21.392,
+   "image_size": [
+    870,
+    580
+   ]
+  },
+  {
+   "id": "wild_12",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この店の外には何色の風船がありますか？",
+   "answer": "画像には、ピンク、紫、青、緑など、**様々な色**の風船が見られます。",
+   "answer_ref": "緑、黄、赤、紫、青の風船があります。",
+   "judge": {
+    "ok": false,
+    "score": 0.3333,
+    "hits": [
+     true,
+     false,
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 301,
+   "n_patches": 2340,
+   "gen_tokens": 23,
+   "t_first": 0.492,
+   "t_total": 8.015,
+   "image_size": [
+    870,
+    580
+   ]
+  },
+  {
+   "id": "wild_13",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この写真に写っている建物は何ですか？",
+   "answer": "この写真に写っている建物は、**日本の伝統的な建築様式**、特に**茶室**や**庭園の一部**として見られるような、**和風の建築物**です。\n\n具体的な建築様式や用途を特定するには、もう少し詳しい情報が必要ですが、全体的な雰囲気から、",
+   "answer_ref": "この写真には金閣寺が写っています。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 299,
+   "n_patches": 2340,
+   "gen_tokens": 64,
+   "t_first": 0.487,
+   "t_total": 21.734,
+   "image_size": [
+    870,
+    580
+   ]
+  },
+  {
+   "id": "wild_14",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "写真に写っている人々はどのような服を着ていますか？",
+   "answer": "写真に写っている人々は、伝統的な日本の着物のような、ゆったりとした着物のようなものを着用しています。\n\n* **左側の女性:** 茶色や黄土色系の柄の着物を着ています。\n* **右側の女性:** 薄い紫やグレー系の色合いの着物を着",
+   "answer_ref": "写真に写っている人々は着物を着ています。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 302,
+   "n_patches": 2340,
+   "gen_tokens": 64,
+   "t_first": 0.48,
+   "t_total": 21.825,
+   "image_size": [
+    987,
+    1481
+   ]
+  },
+  {
+   "id": "wild_15",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この彫刻に表されているテーマは何ですか？",
+   "answer": "この彫刻に表されているテーマは、**猿（または類似の動物）の群れ**、あるいは**自然の中の動物たち**であると考えられます。\n\n具体的には、動物たちが描かれており、その表情やポーズから、自然界の様子や、動物たちの生活、あるいは何らか",
+   "answer_ref": "「見ざる、聞かざる、言わざる」がテーマです。この三匹の猿はそれぞれ目、耳、口を覆っており、悪いものを見ず、聞かず、言わないことを象徴しています。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 300,
+   "n_patches": 2340,
+   "gen_tokens": 64,
+   "t_first": 0.536,
+   "t_total": 21.887,
+   "image_size": [
+    867,
+    580
+   ]
+  },
+  {
+   "id": "wild_16",
+   "set": "wild",
+   "tags": [
+    "count"
+   ],
+   "question": "この写真に写っている人は何人ですか？",
+   "answer": "この写真には**4人**が写っています。",
+   "answer_ref": "4人です。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 306,
+   "n_patches": 2394,
+   "gen_tokens": 12,
+   "t_first": 0.478,
+   "t_total": 4.199,
+   "image_size": [
+    1074,
+    805
+   ]
+  },
+  {
+   "id": "wild_17",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この画像に写っている人々はどのような服を着ていますか？",
+   "answer": "画像に写っている人々は、日本の伝統的な衣装である**着物**を着ています。\n\n具体的には、以下のような特徴が見られます。\n\n* **女性たち:** 淡い色（ピンク、薄緑など）の着物や、それに合わせた伝統的な装いをしています。\n* **男性:** 青",
+   "answer_ref": "この画像の人々は日本の伝統的な服装である着物を着ています。女性はそれぞれ異なる色と柄の着物を着ており、右側にいる男性は青い色の柄入りの浴衣を着ています。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 309,
+   "n_patches": 2394,
+   "gen_tokens": 64,
+   "t_first": 0.497,
+   "t_total": 21.642,
+   "image_size": [
+    1074,
+    805
+   ]
+  },
+  {
+   "id": "wild_18",
+   "set": "wild",
+   "tags": [
+    "ocr"
+   ],
+   "question": "この八百屋さんで売られているパイナップルの価格はいくらですか？",
+   "answer": "画像には、パイナップルの価格が明記されていません。",
+   "answer_ref": "パイナップルの価格は198円です。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 264,
+   "prompt_len": 310,
+   "n_patches": 2376,
+   "gen_tokens": 14,
+   "t_first": 0.51,
+   "t_total": 4.986,
+   "image_size": [
+    1032,
+    581
+   ]
+  },
+  {
+   "id": "wild_19",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この写真にはどのような果物が売られていますか？",
+   "answer": "この写真には、**パイナップル**と**オレンジ**が売られています。",
+   "answer_ref": "パイナップル、みかん、柿が売られています。",
+   "judge": {
+    "ok": false,
+    "score": 0.6667,
+    "hits": [
+     true,
+     true,
+     false
+    ]
+   },
+   "n_image_tokens": 264,
+   "prompt_len": 304,
+   "n_patches": 2376,
+   "gen_tokens": 18,
+   "t_first": 0.503,
+   "t_total": 6.42,
+   "image_size": [
+    1032,
+    581
+   ]
+  },
+  {
+   "id": "wild_20",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この画像に写っているタワーの名前は何ですか？",
+   "answer": "画像に写っているタワーは、**東京タワー**です。",
+   "answer_ref": "通天閣です。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 264,
+   "prompt_len": 305,
+   "n_patches": 2376,
+   "gen_tokens": 16,
+   "t_first": 0.459,
+   "t_total": 5.404,
+   "image_size": [
+    927,
+    1648
+   ]
+  },
+  {
+   "id": "wild_21",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この画像にはどんな食事が写っていますか？",
+   "answer": "この画像には、**スープまたは煮込み料理**のようなものが写っています。\n\n具体的には、金属製の鍋のような器に入った、具材（おそらく肉や野菜、卵など）とスープが煮込まれた料理です。その横には、ご飯（白米）や、飲み物、調味料",
+   "answer_ref": "この画像には、とんかつが卵と玉ねぎと一緒に鉄鍋で提供されている「かつ丼」と、横にご飯とみそ汁が写っています。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 300,
+   "n_patches": 2340,
+   "gen_tokens": 64,
+   "t_first": 0.506,
+   "t_total": 21.731,
+   "image_size": [
+    870,
+    580
+   ]
+  },
+  {
+   "id": "wild_22",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この画像に写っている傘は何色ですか？",
+   "answer": "画像に写っている傘は**白**です。",
+   "answer_ref": "白い色です。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 300,
+   "n_patches": 2340,
+   "gen_tokens": 12,
+   "t_first": 0.516,
+   "t_total": 4.405,
+   "image_size": [
+    987,
+    1481
+   ]
+  },
+  {
+   "id": "wild_23",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この店はどんな食品を主に販売していますか？",
+   "answer": "この店は、**揚げ物**（特に唐揚げのようなもの）を主に販売しているようです。",
+   "answer_ref": "揚げ物を主に販売しています。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 301,
+   "n_patches": 2340,
+   "gen_tokens": 22,
+   "t_first": 0.496,
+   "t_total": 7.581,
+   "image_size": [
+    870,
+    580
+   ]
+  },
+  {
+   "id": "wild_24",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この写真に写っている店の色は何色ですか？",
+   "answer": "写真に写っている店の色は、**赤**と**オレンジ**が使われています。",
+   "answer_ref": "赤色です。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 301,
+   "n_patches": 2340,
+   "gen_tokens": 19,
+   "t_first": 0.555,
+   "t_total": 6.618,
+   "image_size": [
+    869,
+    580
+   ]
+  },
+  {
+   "id": "wild_25",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この画像に映っている魚の形をした飾りは、日本では何と呼ばれていますか？",
+   "answer": "画像に映っている魚の形をした飾りは、**魚飾り**や**魚の飾り**といった表現が一般的です。\n\n特に、日本の祭りやイベントなどで使われる文脈であれば、その飾り付け全体を指す言葉や、特定の装飾の名称が文脈によって変わる可能性があります。",
+   "answer_ref": "これらは「こいのぼり」と呼ばれています。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 314,
+   "n_patches": 2394,
+   "gen_tokens": 64,
+   "t_first": 0.479,
+   "t_total": 21.868,
+   "image_size": [
+    1077,
+    805
+   ]
+  },
+  {
+   "id": "wild_26",
+   "set": "wild",
+   "tags": [
+    "sign",
+    "car"
+   ],
+   "question": "この写真に写っている標識の色は何ですか？",
+   "answer": "写真に写っている標識の色は、主に**赤、白、青**です。",
+   "answer_ref": "赤色と青色です。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true,
+     true
+    ]
+   },
+   "n_image_tokens": 252,
+   "prompt_len": 293,
+   "n_patches": 2268,
+   "gen_tokens": 20,
+   "t_first": 0.501,
+   "t_total": 6.869,
+   "image_size": [
+    400,
+    500
+   ]
+  },
+  {
+   "id": "wild_27",
+   "set": "wild",
+   "tags": [
+    "ocr",
+    "sign",
+    "car"
+   ],
+   "question": "この画像にはどんな標識が写っていますか？",
+   "answer": "この画像には、**道路標識**が写っています。\n\n具体的には、**左折を指示する矢印の標識**と、その下に**「自動車を排除」**といった意味の**規制標識**が確認できます。",
+   "answer_ref": "画像には「進入禁止」の標識と、左矢印がある「一方通行」の標識が写っています。下部には「自転車を除く」という補助標識もあります。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false,
+     false
+    ]
+   },
+   "n_image_tokens": 252,
+   "prompt_len": 293,
+   "n_patches": 2268,
+   "gen_tokens": 53,
+   "t_first": 0.482,
+   "t_total": 18.195,
+   "image_size": [
+    400,
+    500
+   ]
+  },
+  {
+   "id": "wild_28",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この画像に写っているものは何ですか？",
+   "answer": "この画像には、**3本のガラス瓶**と、その背景に**大きな緑色の容器**が写っています。\n\n瓶の中には、**緑色または黄緑色の液体**が入っています。",
+   "answer_ref": "日本酒の瓶が4本写っています。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 305,
+   "n_patches": 2394,
+   "gen_tokens": 43,
+   "t_first": 0.497,
+   "t_total": 14.567,
+   "image_size": [
+    1074,
+    806
+   ]
+  },
+  {
+   "id": "wild_29",
+   "set": "wild",
+   "tags": [
+    "ocr"
+   ],
+   "question": "この写真にはどんな文字が書かれていますか？",
+   "answer": "写真には「そうだどん」という文字が書かれています。",
+   "answer_ref": "「そばうどん」と書かれています。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false,
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 301,
+   "n_patches": 2340,
+   "gen_tokens": 15,
+   "t_first": 0.502,
+   "t_total": 5.208,
+   "image_size": [
+    870,
+    580
+   ]
+  },
+  {
+   "id": "wild_30",
+   "set": "wild",
+   "tags": [
+    "ocr",
+    "car"
+   ],
+   "question": "画像に写っている車のナンバープレートの数字は何ですか？",
+   "answer": "画像に写っている車のナンバープレートの数字は「**18-22**」です。",
+   "answer_ref": "18-22です。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 302,
+   "n_patches": 2340,
+   "gen_tokens": 22,
+   "t_first": 0.483,
+   "t_total": 7.472,
+   "image_size": [
+    987,
+    1481
+   ]
+  },
+  {
+   "id": "wild_31",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この写真に写っている動物は何ですか？",
+   "answer": "この写真に写っている動物は**シカ**です。",
+   "answer_ref": "写真には鹿が2匹写っています。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 299,
+   "n_patches": 2340,
+   "gen_tokens": 14,
+   "t_first": 0.489,
+   "t_total": 4.886,
+   "image_size": [
+    842,
+    580
+   ]
+  },
+  {
+   "id": "wild_32",
+   "set": "wild",
+   "tags": [
+    "ocr"
+   ],
+   "question": "この看板に表示されている店舗は何ですか？",
+   "answer": "この看板には、**マクドナルド (McDonald's)** のロゴと、店舗の番号（168番）が記載されています。",
+   "answer_ref": "マクドナルドの店舗です。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 305,
+   "n_patches": 2394,
+   "gen_tokens": 33,
+   "t_first": 0.512,
+   "t_total": 11.443,
+   "image_size": [
+    870,
+    1160
+   ]
+  },
+  {
+   "id": "wild_33",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "このお皿の上には何がのっていますか？",
+   "answer": "お皿の上には、**クッキー**が置かれています。",
+   "answer_ref": "お皿の上にはクッキーが2枚のっています。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 301,
+   "n_patches": 2340,
+   "gen_tokens": 15,
+   "t_first": 0.528,
+   "t_total": 5.351,
+   "image_size": [
+    870,
+    580
+   ]
+  },
+  {
+   "id": "wild_34",
+   "set": "wild",
+   "tags": [
+    "car"
+   ],
+   "question": "この画像にはどのような乗り物が写っていますか？",
+   "answer": "この画像には、**赤い車**と**黒い車**の2台が写っています。",
+   "answer_ref": "タクシーが写っています。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 273,
+   "prompt_len": 313,
+   "n_patches": 2457,
+   "gen_tokens": 22,
+   "t_first": 0.471,
+   "t_total": 7.519,
+   "image_size": [
+    928,
+    580
+   ]
+  },
+  {
+   "id": "wild_35",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この画像に写っている山は何でしょうか？",
+   "answer": "この画像に写っている山は、**富士山**である可能性が非常に高いです。",
+   "answer_ref": "富士山です。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 273,
+   "prompt_len": 312,
+   "n_patches": 2457,
+   "gen_tokens": 20,
+   "t_first": 0.48,
+   "t_total": 6.84,
+   "image_size": [
+    928,
+    580
+   ]
+  },
+  {
+   "id": "wild_36",
+   "set": "wild",
+   "tags": [
+    "ocr"
+   ],
+   "question": "このお店は何を売っていると思いますか？",
+   "answer": "このお店は**本や文房具、趣味の関連商品**などを扱っている書店や文具店、あるいは総合的な雑貨店のような場所だと推測されます。\n\n看板に「OK-OFF Hobby」とあることから、「Hobby（趣味）」に関連する商品や、クリエイティブな活動",
+   "answer_ref": "このお店は中古の本やCD、ビデオゲームなどを売っています。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 299,
+   "n_patches": 2340,
+   "gen_tokens": 64,
+   "t_first": 0.463,
+   "t_total": 21.69,
+   "image_size": [
+    987,
+    1480
+   ]
+  },
+  {
+   "id": "wild_37",
+   "set": "wild",
+   "tags": [
+    "ocr"
+   ],
+   "question": "店の名前は何ですか？",
+   "answer": "画像に写っているお店の名前は「**BOOK-OFF Hobby**」です。",
+   "answer_ref": "店の名前は「BOOK-OFF」です。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 295,
+   "n_patches": 2340,
+   "gen_tokens": 18,
+   "t_first": 0.48,
+   "t_total": 6.324,
+   "image_size": [
+    987,
+    1480
+   ]
+  },
+  {
+   "id": "wild_38",
+   "set": "wild",
+   "tags": [
+    "sign"
+   ],
+   "question": "この看板に書かれている絵はどのような特徴を持っていますか？",
+   "answer": "この看板に書かれている絵は、**歩行者**を表しています。\n\n具体的には、以下のような特徴があります。\n\n* **人物のシルエット:** 人物の体と足の形が描かれています。\n* **歩行のポーズ:** 前方に進むような、歩いている動作が表現",
+   "answer_ref": "この標識には、横断歩道を渡る人の絵が描かれており、顔には何かしらのステッカーが貼られていて、その結果、人の顔がダイビング用のゴーグルをつけているように見えます。",
+   "judge": {
+    "ok": null,
+    "score": null,
+    "hits": null
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 303,
+   "n_patches": 2340,
+   "gen_tokens": 64,
+   "t_first": 0.487,
+   "t_total": 21.656,
+   "image_size": [
+    986,
+    1482
+   ]
+  },
+  {
+   "id": "wild_39",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この写真にはどのようなものが木についていますか？",
+   "answer": "この写真には、**大きな赤い蝶の形をしたオブジェ**が木に吊るされています。\n\n背景には、**緑の葉の茂った木々**や**緑の植え込み**が見え、屋外の自然な環境であることがわかります。",
+   "answer_ref": "テントウムシの形をしたオブジェクトが木についています。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 306,
+   "n_patches": 2394,
+   "gen_tokens": 56,
+   "t_first": 0.483,
+   "t_total": 18.778,
+   "image_size": [
+    1074,
+    806
+   ]
+  },
+  {
+   "id": "wild_40",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この写真に写っている歴史的な建物は何ですか？",
+   "answer": "提供された画像だけでは、写っている歴史的な建物の正確な名前を特定することはできません。\n\nしかし、写真の雰囲気や建築様式から、**アメリカの都市**にある、**歴史的な商業地区や大学のキャンパス周辺**によく見られるような、**レンガ造りの建物**",
+   "answer_ref": "この写真には東京駅の丸の内駅舎が写っています。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 307,
+   "n_patches": 2394,
+   "gen_tokens": 64,
+   "t_first": 0.46,
+   "t_total": 21.489,
+   "image_size": [
+    1074,
+    806
+   ]
+  },
+  {
+   "id": "wild_41",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この人はどこにいますか？",
+   "answer": "画像には、**バス停のような場所**にいる人物が写っています。\n\n具体的には、**ベンチのそばに立っている男性**です。",
+   "answer_ref": "バス停にいます。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 297,
+   "n_patches": 2340,
+   "gen_tokens": 33,
+   "t_first": 0.499,
+   "t_total": 11.464,
+   "image_size": [
+    987,
+    1481
+   ]
+  },
+  {
+   "id": "wild_42",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この写真に写っているバスは何色ですか？",
+   "answer": "写真に写っているバスは、**オレンジ色**です。",
+   "answer_ref": "バスはオレンジ色です。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 300,
+   "n_patches": 2340,
+   "gen_tokens": 14,
+   "t_first": 0.488,
+   "t_total": 4.857,
+   "image_size": [
+    987,
+    1481
+   ]
+  },
+  {
+   "id": "wild_43",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この画像にはどんな植物が写っていますか？",
+   "answer": "この画像には、**ひまわり**が写っています。",
+   "answer_ref": "ひまわりが写っています。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 300,
+   "n_patches": 2340,
+   "gen_tokens": 14,
+   "t_first": 0.501,
+   "t_total": 4.965,
+   "image_size": [
+    985,
+    1485
+   ]
+  },
+  {
+   "id": "wild_44",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この女性は何をしていますか？",
+   "answer": "この女性は、屋外のイベントなどで**バイオリンを演奏している**ようです。",
+   "answer_ref": "バイオリンを演奏しています。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 270,
+   "prompt_len": 307,
+   "n_patches": 2430,
+   "gen_tokens": 18,
+   "t_first": 0.501,
+   "t_total": 6.154,
+   "image_size": [
+    952,
+    1161
+   ]
+  },
+  {
+   "id": "wild_45",
+   "set": "wild",
+   "tags": [
+    "count"
+   ],
+   "question": "画像には何匹の猿がいますか？",
+   "answer": "画像には**1匹**の猿が写っています。",
+   "answer_ref": "2匹の猿がいます。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 300,
+   "n_patches": 2340,
+   "gen_tokens": 13,
+   "t_first": 0.482,
+   "t_total": 4.564,
+   "image_size": [
+    870,
+    580
+   ]
+  },
+  {
+   "id": "wild_46",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この写真に映っている建物は何と呼ばれていますか？",
+   "answer": "この写真に映っている建物は、**茅葺き屋根の伝統的な民家**、あるいは**古民家**と呼ばれる可能性があります。\n\n特に、その屋根の葺き方や木造の構造から、日本の伝統的な建築様式を反映した建物であると考えられます。",
+   "answer_ref": "合掌造りの家です。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 301,
+   "n_patches": 2340,
+   "gen_tokens": 62,
+   "t_first": 0.493,
+   "t_total": 21.023,
+   "image_size": [
+    876,
+    580
+   ]
+  },
+  {
+   "id": "wild_47",
+   "set": "wild",
+   "tags": [
+    "ocr",
+    "car"
+   ],
+   "question": "この駐車場の利用可能時間は何時から何時までですか？",
+   "answer": "画像には駐車場の利用可能時間に関する情報が記載されていません。\n\n駐車場の利用時間については、**看板や周辺の案内、または駐車場の管理者に直接確認する**必要があります。",
+   "answer_ref": "この駐車場は8時から20時まで利用可能です。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false,
+     false
+    ]
+   },
+   "n_image_tokens": 266,
+   "prompt_len": 309,
+   "n_patches": 2394,
+   "gen_tokens": 40,
+   "t_first": 0.479,
+   "t_total": 13.5,
+   "image_size": [
+    870,
+    1160
+   ]
+  },
+  {
+   "id": "wild_48",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この画像にはどんなアイテムが砂浜に置かれていますか？",
+   "answer": "画像には、砂浜に**サンダル**が置かれています。",
+   "answer_ref": "2足のサンダルが砂浜に置かれています。",
+   "judge": {
+    "ok": true,
+    "score": 1.0,
+    "hits": [
+     true
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 304,
+   "n_patches": 2340,
+   "gen_tokens": 16,
+   "t_first": 0.474,
+   "t_total": 5.683,
+   "image_size": [
+    985,
+    1486
+   ]
+  },
+  {
+   "id": "wild_49",
+   "set": "wild",
+   "tags": [
+    "general"
+   ],
+   "question": "この画像にはどんな機械が写っていますか？",
+   "answer": "この画像には、**洗濯機**が多数写っています。",
+   "answer_ref": "画像にはガチャガチャと呼ばれるカプセルトイの自動販売機が写っています。",
+   "judge": {
+    "ok": false,
+    "score": 0.0,
+    "hits": [
+     false
+    ]
+   },
+   "n_image_tokens": 260,
+   "prompt_len": 300,
+   "n_patches": 2340,
+   "gen_tokens": 14,
+   "t_first": 0.485,
+   "t_total": 4.793,
+   "image_size": [
+    870,
+    580
+   ]
+  }
+ ],
+ "rejudged": "2026-09-28 12:39:55"
+}

@@ -1,0 +1,385 @@
+{
+ "tag": "b70_21x30",
+ "variants": {
+  "nosrq": {
+   "ok": true,
+   "open_ms": 551.0629169940948,
+   "run_ms": 158.69651103019714,
+   "backend": "QNN HTP - EPContext - all nodes",
+   "error": null,
+   "dmabuf_mib": {
+    "before": 0.0,
+    "after_open": 152.296875,
+    "after_run": 152.296875,
+    "settled": 152.296875
+   },
+   "rss_mib": {
+    "before": 87.58203125,
+    "after_open": 107.3046875,
+    "after_run": 109.6640625,
+    "settled": 109.6640625
+   },
+   "hwm_open_mib": 272.6875,
+   "mem_available_mib_before": 1974.6640625,
+   "raw": {
+    "baseline": {
+     "cma_free_kb": 21028,
+     "dmabuf": {
+      "bytes": 0,
+      "count": 0
+     },
+     "label": "baseline",
+     "mem_available_kb": 2022308,
+     "mem_free_kb": 387316,
+     "pss_kb": 28984,
+     "rss_anon_kb": 29296,
+     "rss_file_kb": 59568,
+     "rss_shmem_kb": 820,
+     "swap_free_kb": 3063200,
+     "t_ms": 1156513524.813873,
+     "vm_hwm_kb": 89684,
+     "vm_rss_kb": 89684,
+     "vm_size_kb": 17604732,
+     "vm_swap_kb": 24104
+    },
+    "final": {
+     "cma_free_kb": 11656,
+     "dmabuf": {
+      "bytes": 0,
+      "count": 0
+     },
+     "label": "final",
+     "mem_available_kb": 1972004,
+     "mem_free_kb": 374020,
+     "pss_kb": 48924,
+     "rss_anon_kb": 37848,
+     "rss_file_kb": 71848,
+     "rss_shmem_kb": 832,
+     "swap_free_kb": 3063208,
+     "t_ms": 1156515274.458716,
+     "vm_hwm_kb": 279232,
+     "vm_rss_kb": 110528,
+     "vm_size_kb": 17729636,
+     "vm_swap_kb": 23636
+    },
+    "hwm_reset_supported": true,
+    "job_id": "vit_mem_b70_21x30_nosrq",
+    "ok": true,
+    "pid": 19791,
+    "power_profile": "default(unsigned_pd)",
+    "records": [
+     {
+      "after_open": {
+       "cma_free_kb": 11628,
+       "dmabuf": {
+        "bytes": 159694848,
+        "count": 7
+       },
+       "label": "after_open",
+       "mem_available_kb": 1764660,
+       "mem_free_kb": 285636,
+       "pss_kb": 48576,
+       "rss_anon_kb": 37452,
+       "rss_file_kb": 71596,
+       "rss_shmem_kb": 832,
+       "swap_free_kb": 3063208,
+       "t_ms": 1156514082.430592,
+       "vm_hwm_kb": 279232,
+       "vm_rss_kb": 109880,
+       "vm_size_kb": 17917524,
+       "vm_swap_kb": 23636
+      },
+      "after_release": {
+       "cma_free_kb": 11656,
+       "dmabuf": {
+        "bytes": 0,
+        "count": 0
+       },
+       "label": "after_release",
+       "mem_available_kb": 1855340,
+       "mem_free_kb": 373792,
+       "pss_kb": 48924,
+       "rss_anon_kb": 37848,
+       "rss_file_kb": 71848,
+       "rss_shmem_kb": 832,
+       "swap_free_kb": 3063208,
+       "t_ms": 1156515271.643768,
+       "vm_hwm_kb": 279232,
+       "vm_rss_kb": 110528,
+       "vm_size_kb": 17729636,
+       "vm_swap_kb": 23636
+      },
+      "after_run": {
+       "cma_free_kb": 9628,
+       "dmabuf": {
+        "bytes": 159694848,
+        "count": 7
+       },
+       "label": "after_run",
+       "mem_available_kb": 1762764,
+       "mem_free_kb": 283740,
+       "pss_kb": 50892,
+       "rss_anon_kb": 39616,
+       "rss_file_kb": 71848,
+       "rss_shmem_kb": 832,
+       "swap_free_kb": 3063208,
+       "t_ms": 1156514245.845956,
+       "vm_hwm_kb": 279232,
+       "vm_rss_kb": 112296,
+       "vm_size_kb": 17920460,
+       "vm_swap_kb": 23636
+      },
+      "backend": "QNN HTP - EPContext - all nodes",
+      "before": {
+       "cma_free_kb": 21028,
+       "dmabuf": {
+        "bytes": 0,
+        "count": 0
+       },
+       "label": "before",
+       "mem_available_kb": 2022056,
+       "mem_free_kb": 387064,
+       "pss_kb": 29008,
+       "rss_anon_kb": 29296,
+       "rss_file_kb": 59568,
+       "rss_shmem_kb": 820,
+       "swap_free_kb": 3063200,
+       "t_ms": 1156513527.154811,
+       "vm_hwm_kb": 89684,
+       "vm_rss_kb": 89684,
+       "vm_size_kb": 17604732,
+       "vm_swap_kb": 24104
+      },
+      "index": 0,
+      "model": "models/vit/vit_b70_21x30_nosrq_epctx.onnx",
+      "open_ms": 551.0629169940948,
+      "open_ok": true,
+      "run_ms": 158.69651103019714,
+      "run_ok": true,
+      "settled": {
+       "cma_free_kb": 9244,
+       "dmabuf": {
+        "bytes": 159694848,
+        "count": 7
+       },
+       "label": "settled",
+       "mem_available_kb": 1763220,
+       "mem_free_kb": 283976,
+       "pss_kb": 50892,
+       "rss_anon_kb": 39616,
+       "rss_file_kb": 71848,
+       "rss_shmem_kb": 832,
+       "swap_free_kb": 3063208,
+       "t_ms": 1156515250.57757,
+       "vm_hwm_kb": 279232,
+       "vm_rss_kb": 112296,
+       "vm_size_kb": 17920460,
+       "vm_swap_kb": 23636
+      }
+     }
+    ],
+    "releases": [],
+    "samples_file": "out/memprobe_vit_mem_b70_21x30_nosrq_samples.csv",
+    "steps_file": "out/memprobe_vit_mem_b70_21x30_nosrq_steps.jsonl",
+    "task": "memprobe",
+    "versions": {
+     "onnxruntime": "1.27.0",
+     "ort_api_version": 27,
+     "qnn_runtime": "see manifest (bundled QAIRT set)"
+    },
+    "_kind": "result",
+    "_wall_s": 2.1
+   }
+  },
+  "srq": {
+   "ok": true,
+   "open_ms": 732.9803650379181,
+   "run_ms": 269.49557304382324,
+   "backend": "QNN HTP - EPContext - all nodes",
+   "error": null,
+   "dmabuf_mib": {
+    "before": 0.0,
+    "after_open": 152.30078125,
+    "after_run": 152.30078125,
+    "settled": 152.30078125
+   },
+   "rss_mib": {
+    "before": 87.2421875,
+    "after_open": 107.55078125,
+    "after_run": 109.96875,
+    "settled": 109.96875
+   },
+   "hwm_open_mib": 284.9453125,
+   "mem_available_mib_before": 1970.83984375,
+   "raw": {
+    "baseline": {
+     "cma_free_kb": 16924,
+     "dmabuf": {
+      "bytes": 0,
+      "count": 0
+     },
+     "label": "baseline",
+     "mem_available_kb": 2018140,
+     "mem_free_kb": 383216,
+     "pss_kb": 28871,
+     "rss_anon_kb": 29156,
+     "rss_file_kb": 59360,
+     "rss_shmem_kb": 820,
+     "swap_free_kb": 3063268,
+     "t_ms": 1156517099.279132,
+     "vm_hwm_kb": 89336,
+     "vm_rss_kb": 89336,
+     "vm_size_kb": 17646688,
+     "vm_swap_kb": 24220
+    },
+    "final": {
+     "cma_free_kb": 7216,
+     "dmabuf": {
+      "bytes": 0,
+      "count": 0
+     },
+     "label": "final",
+     "mem_available_kb": 2003604,
+     "mem_free_kb": 372312,
+     "pss_kb": 49119,
+     "rss_anon_kb": 37880,
+     "rss_file_kb": 72124,
+     "rss_shmem_kb": 832,
+     "swap_free_kb": 3063280,
+     "t_ms": 1156519184.932569,
+     "vm_hwm_kb": 291784,
+     "vm_rss_kb": 110836,
+     "vm_size_kb": 17697864,
+     "vm_swap_kb": 23704
+    },
+    "hwm_reset_supported": true,
+    "job_id": "vit_mem_b70_21x30_srq",
+    "ok": true,
+    "pid": 19857,
+    "power_profile": "default(unsigned_pd)",
+    "records": [
+     {
+      "after_open": {
+       "cma_free_kb": 8892,
+       "dmabuf": {
+        "bytes": 159698944,
+        "count": 7
+       },
+       "label": "after_open",
+       "mem_available_kb": 1719744,
+       "mem_free_kb": 244088,
+       "pss_kb": 48771,
+       "rss_anon_kb": 37492,
+       "rss_file_kb": 71808,
+       "rss_shmem_kb": 832,
+       "swap_free_kb": 3063280,
+       "t_ms": 1156517839.101892,
+       "vm_hwm_kb": 291784,
+       "vm_rss_kb": 110132,
+       "vm_size_kb": 17885756,
+       "vm_swap_kb": 23704
+      },
+      "after_release": {
+       "cma_free_kb": 7216,
+       "dmabuf": {
+        "bytes": 0,
+        "count": 0
+       },
+       "label": "after_release",
+       "mem_available_kb": 1872276,
+       "mem_free_kb": 371172,
+       "pss_kb": 49119,
+       "rss_anon_kb": 37880,
+       "rss_file_kb": 72124,
+       "rss_shmem_kb": 832,
+       "swap_free_kb": 3063280,
+       "t_ms": 1156519171.839288,
+       "vm_hwm_kb": 291784,
+       "vm_rss_kb": 110836,
+       "vm_size_kb": 17697864,
+       "vm_swap_kb": 23704
+      },
+      "after_run": {
+       "cma_free_kb": 6440,
+       "dmabuf": {
+        "bytes": 159698944,
+        "count": 7
+       },
+       "label": "after_run",
+       "mem_available_kb": 1717728,
+       "mem_free_kb": 242072,
+       "pss_kb": 51091,
+       "rss_anon_kb": 39652,
+       "rss_file_kb": 72124,
+       "rss_shmem_kb": 832,
+       "swap_free_kb": 3063280,
+       "t_ms": 1156518113.5371,
+       "vm_hwm_kb": 291784,
+       "vm_rss_kb": 112608,
+       "vm_size_kb": 17888692,
+       "vm_swap_kb": 23704
+      },
+      "backend": "QNN HTP - EPContext - all nodes",
+      "before": {
+       "cma_free_kb": 16924,
+       "dmabuf": {
+        "bytes": 0,
+        "count": 0
+       },
+       "label": "before",
+       "mem_available_kb": 2018140,
+       "mem_free_kb": 382964,
+       "pss_kb": 28875,
+       "rss_anon_kb": 29156,
+       "rss_file_kb": 59360,
+       "rss_shmem_kb": 820,
+       "swap_free_kb": 3063268,
+       "t_ms": 1156517102.12783,
+       "vm_hwm_kb": 89336,
+       "vm_rss_kb": 89336,
+       "vm_size_kb": 17646688,
+       "vm_swap_kb": 24220
+      },
+      "index": 0,
+      "model": "models/vit/vit_b70_21x30_srq_epctx.onnx",
+      "open_ms": 732.9803650379181,
+      "open_ok": true,
+      "run_ms": 269.49557304382324,
+      "run_ok": true,
+      "settled": {
+       "cma_free_kb": 4760,
+       "dmabuf": {
+        "bytes": 159698944,
+        "count": 7
+       },
+       "label": "settled",
+       "mem_available_kb": 1715340,
+       "mem_free_kb": 239684,
+       "pss_kb": 51093,
+       "rss_anon_kb": 39652,
+       "rss_file_kb": 72124,
+       "rss_shmem_kb": 832,
+       "swap_free_kb": 3063280,
+       "t_ms": 1156519123.975173,
+       "vm_hwm_kb": 291784,
+       "vm_rss_kb": 112608,
+       "vm_size_kb": 17888692,
+       "vm_swap_kb": 23704
+      }
+     }
+    ],
+    "releases": [],
+    "samples_file": "out/memprobe_vit_mem_b70_21x30_srq_samples.csv",
+    "steps_file": "out/memprobe_vit_mem_b70_21x30_srq_steps.jsonl",
+    "task": "memprobe",
+    "versions": {
+     "onnxruntime": "1.27.0",
+     "ort_api_version": 27,
+     "qnn_runtime": "see manifest (bundled QAIRT set)"
+    },
+    "_kind": "result",
+    "_wall_s": 4.3
+   }
+  }
+ }
+}

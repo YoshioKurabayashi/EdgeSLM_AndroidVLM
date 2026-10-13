@@ -1,0 +1,8 @@
+{
+ "n": 126,
+ "n_ok": 45,
+ "n_judged": 123,
+ "image_fed_mismatch": [],
+ "path": "D:\\AI\\source\\n_chap5\\EdgeSLM_AndroidVLM\\results\\P1_ref_vlm\\fixed_70_device_t16_vnpz-vit_b70_21x30_nosrq_dev.json",
+ "sec": 589.8
+}

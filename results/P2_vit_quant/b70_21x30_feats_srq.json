@@ -1,0 +1,12 @@
+{
+ "tag": "b70_21x30",
+ "variant": "srq",
+ "path": "D:\\AI\\source\\n_chap5\\EdgeSLM_AndroidVLM\\work\\feats\\vit_b70_21x30_srq.npz",
+ "n_images": 108,
+ "sec": 181.3,
+ "pixel_check": {
+  "n_images": 16,
+  "max_abs": 0.0,
+  "n_diff": 0
+ }
+}

@@ -1,0 +1,82 @@
+{
+ "rewrite": {
+  "mean_rewritten": 242,
+  "mean_total": 242,
+  "tanh_rewritten": 35,
+  "tanh_total": 70,
+  "sec": 55.2,
+  "equiv": {
+   "logits_rel_max": 0.18054031489830705,
+   "top5": [
+    [
+     "logits",
+     0.18054
+    ],
+    [
+     "present_v_14",
+     0.066316
+    ],
+    [
+     "present_v_12",
+     0.057459
+    ],
+    [
+     "present_v_13",
+     0.052604
+    ],
+    [
+     "present_k_14",
+     0.047642
+    ]
+   ]
+  }
+ },
+ "convert": {
+  "sec": 14332.4,
+  "rc": 0,
+  "verify": [
+   {
+    "check": "C-1 float セグメント残存ゼロ",
+    "pass": true,
+    "detail": "計算ノード間・グラフI/O境界ともに float の残存はない"
+   },
+   {
+    "check": "C-5 BatchNormalization 残存ゼロ",
+    "pass": true,
+    "detail": "BatchNormalization なし"
+   },
+   {
+    "check": "C-2 socModel==0",
+    "pass": true,
+    "detail": "socModel=0"
+   },
+   {
+    "check": "C-3 backend_extensions config 未使用",
+    "pass": true,
+    "detail": "config 指定なし"
+   },
+   {
+    "check": "C-4 --preserve_io_datatype の前提充足",
+    "pass": true,
+    "detail": "C-1 pass 済みのモデルに付与"
+   }
+  ],
+  "ctx_bin": "D:\\AI\\source\\n_chap5\\EdgeSLM_AndroidVLM\\work\\ops\\g4t16f_W256\\build\\ctx_g4t16f_W256\\g4t16f_W256_ctx.SM8350.bin",
+  "ctx_mib": 1467.5,
+  "epctx": "D:\\AI\\source\\n_chap5\\EdgeSLM_AndroidVLM\\work\\ops\\g4t16f_W256\\g4t16f_W256_a16w8_rhs8_epctx.onnx",
+  "same_io_as_t16": true,
+  "dlc_ops": {
+   "RmsNorm": 0,
+   "Tanh": 0,
+   "FullyConnected": 519,
+   "ReduceMean": 0
+  },
+  "ddr": {
+   "spill_bytes": 15261696,
+   "fill_bytes": 20889600,
+   "write_total_bytes": 18374656,
+   "read_total_bytes": 1570427904
+  },
+  "all_pass": true
+ }
+}

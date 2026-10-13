@@ -1,0 +1,301 @@
+{
+ "model": "D:\\AI\\source\\n_chap5\\EdgeSLM_AndroidVLM\\work\\ops\\g4t16f_W256\\g4t16f_W256_final_qdq.onnx",
+ "summary": {
+  "n": 7,
+  "cpu16_eq_dev16": 5,
+  "cpu16_eq_hf": 4,
+  "dev16_eq_hf": 6,
+  "dev1_eq_hf": 5,
+  "margin_median": 2.685,
+  "margin_median_when_cpu16_ne_hf": 1.158
+ },
+ "rows": [
+  {
+   "id": "syn_train",
+   "prompt_len": 106,
+   "cpu16_first": 32613,
+   "dev16_first": 32613,
+   "dev1_first": 32613,
+   "hf_first": 60070,
+   "cpu16_top5": [
+    32613,
+    12680,
+    60070,
+    74796,
+    8978
+   ],
+   "cpu16_top5_logit": [
+    37.91,
+    37.701,
+    37.497,
+    34.791,
+    34.276
+   ],
+   "cpu16_margin": 0.209,
+   "cpu16_logit_of_dev16": 37.91,
+   "cpu16_logit_of_hf": 37.497,
+   "cpu16_gen": [
+    32613,
+    14606,
+    9450,
+    236951,
+    60070,
+    239792,
+    237053,
+    67923,
+    15785
+   ],
+   "prefix_cpu16_dev16": 1,
+   "prefix_cpu16_hf": 0,
+   "prefix_dev16_hf": 0,
+   "prefix_dev1_hf": 0,
+   "sec": 106.7
+  },
+  {
+   "id": "vg_21",
+   "prompt_len": 104,
+   "cpu16_first": 49834,
+   "dev16_first": 32613,
+   "dev1_first": 49834,
+   "hf_first": 32613,
+   "cpu16_top5": [
+    49834,
+    32613,
+    12680,
+    8978,
+    50313
+   ],
+   "cpu16_top5_logit": [
+    36.787,
+    35.63,
+    35.507,
+    31.757,
+    27.511
+   ],
+   "cpu16_margin": 1.158,
+   "cpu16_logit_of_dev16": 35.63,
+   "cpu16_logit_of_hf": 35.63,
+   "cpu16_gen": [
+    49834,
+    1018,
+    237556,
+    1018,
+    237221,
+    238703,
+    237512,
+    239281,
+    10965
+   ],
+   "prefix_cpu16_dev16": 0,
+   "prefix_cpu16_hf": 0,
+   "prefix_dev16_hf": 1,
+   "prefix_dev1_hf": 0,
+   "sec": 106.0
+  },
+  {
+   "id": "vg_15",
+   "prompt_len": 105,
+   "cpu16_first": 32613,
+   "dev16_first": 32613,
+   "dev1_first": 32613,
+   "hf_first": 32613,
+   "cpu16_top5": [
+    32613,
+    12680,
+    8978,
+    74796,
+    221926
+   ],
+   "cpu16_top5_logit": [
+    40.338,
+    37.872,
+    32.815,
+    31.949,
+    30.093
+   ],
+   "cpu16_margin": 2.466,
+   "cpu16_logit_of_dev16": 40.338,
+   "cpu16_logit_of_hf": 40.338,
+   "cpu16_gen": [
+    32613,
+    145450,
+    237053,
+    95752,
+    237050,
+    13385,
+    236951,
+    70622,
+    18794
+   ],
+   "prefix_cpu16_dev16": 9,
+   "prefix_cpu16_hf": 1,
+   "prefix_dev16_hf": 1,
+   "prefix_dev1_hf": 1,
+   "sec": 106.0
+  },
+  {
+   "id": "vg_07",
+   "prompt_len": 106,
+   "cpu16_first": 12680,
+   "dev16_first": 32613,
+   "dev1_first": 32613,
+   "hf_first": 32613,
+   "cpu16_top5": [
+    12680,
+    32613,
+    8978,
+    74796,
+    221926
+   ],
+   "cpu16_top5_logit": [
+    39.038,
+    36.353,
+    29.847,
+    28.906,
+    27.164
+   ],
+   "cpu16_margin": 2.685,
+   "cpu16_logit_of_dev16": 36.353,
+   "cpu16_logit_of_hf": 36.353,
+   "cpu16_gen": [
+    12680,
+    17011,
+    32613,
+    237048,
+    236951,
+    49938,
+    236945,
+    240439,
+    237512
+   ],
+   "prefix_cpu16_dev16": 0,
+   "prefix_cpu16_hf": 0,
+   "prefix_dev16_hf": 1,
+   "prefix_dev1_hf": 2,
+   "sec": 106.4
+  },
+  {
+   "id": "vg_06",
+   "prompt_len": 108,
+   "cpu16_first": 32613,
+   "dev16_first": 32613,
+   "dev1_first": 32613,
+   "hf_first": 32613,
+   "cpu16_top5": [
+    32613,
+    12680,
+    8978,
+    28886,
+    221926
+   ],
+   "cpu16_top5_logit": [
+    44.849,
+    28.881,
+    28.505,
+    27.094,
+    26.353
+   ],
+   "cpu16_margin": 15.967,
+   "cpu16_logit_of_dev16": 44.849,
+   "cpu16_logit_of_hf": 44.849,
+   "cpu16_gen": [
+    32613,
+    10215,
+    1018,
+    236770,
+    237086,
+    1018,
+    236945,
+    45481,
+    238214
+   ],
+   "prefix_cpu16_dev16": 3,
+   "prefix_cpu16_hf": 3,
+   "prefix_dev16_hf": 3,
+   "prefix_dev1_hf": 12,
+   "sec": 106.7
+  },
+  {
+   "id": "car_12b",
+   "prompt_len": 109,
+   "cpu16_first": 32613,
+   "dev16_first": 32613,
+   "dev1_first": 32613,
+   "hf_first": 32613,
+   "cpu16_top5": [
+    32613,
+    12680,
+    221926,
+    238833,
+    74796
+   ],
+   "cpu16_top5_logit": [
+    46.908,
+    38.104,
+    32.538,
+    32.534,
+    30.121
+   ],
+   "cpu16_margin": 8.804,
+   "cpu16_logit_of_dev16": 46.908,
+   "cpu16_logit_of_hf": 46.908,
+   "cpu16_gen": [
+    32613,
+    75528,
+    236951,
+    238833,
+    137643,
+    238962,
+    231051,
+    132798,
+    237673
+   ],
+   "prefix_cpu16_dev16": 1,
+   "prefix_cpu16_hf": 9,
+   "prefix_dev16_hf": 1,
+   "prefix_dev1_hf": 1,
+   "sec": 106.6
+  },
+  {
+   "id": "syn_nav_S",
+   "prompt_len": 109,
+   "cpu16_first": 32613,
+   "dev16_first": 32613,
+   "dev1_first": 32613,
+   "hf_first": 32613,
+   "cpu16_top5": [
+    32613,
+    74796,
+    46715,
+    237374,
+    221926
+   ],
+   "cpu16_top5_logit": [
+    43.171,
+    37.174,
+    35.49,
+    34.669,
+    34.458
+   ],
+   "cpu16_margin": 5.997,
+   "cpu16_logit_of_dev16": 43.171,
+   "cpu16_logit_of_hf": 43.171,
+   "cpu16_gen": [
+    32613,
+    10215,
+    236951,
+    68953,
+    99913,
+    237053,
+    68151,
+    58525,
+    236924
+   ],
+   "prefix_cpu16_dev16": 1,
+   "prefix_cpu16_hf": 9,
+   "prefix_dev16_hf": 1,
+   "prefix_dev1_hf": 1,
+   "sec": 106.9
+  }
+ ]
+}

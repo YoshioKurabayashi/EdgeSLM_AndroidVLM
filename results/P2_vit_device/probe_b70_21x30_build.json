@@ -1,0 +1,31 @@
+{
+ "L2": {
+  "export": {
+   "nodes": 202,
+   "outputs": [
+    "patch_embed",
+    "layer_0",
+    "layer_1"
+   ]
+  },
+  "quantize": {
+   "written": 15,
+   "n_rhs": 4,
+   "C1": true,
+   "C5": true,
+   "C14": {
+    "n_weights": 15,
+    "min_ratio": 0.015625,
+    "min_ratio_tensor": "val_2_quantized",
+    "ok": true
+   },
+   "scale_floored": {
+    "model.vision_tower.patch_embedder.input_proj": 309
+   }
+  },
+  "convert": {
+   "sec": 80.9,
+   "ctx_mib": 22.0
+  }
+ }
+}

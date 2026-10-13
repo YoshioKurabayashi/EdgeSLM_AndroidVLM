@@ -1,0 +1,203 @@
+{
+ "tag": "b70_21x30",
+ "variant": "nosrq",
+ "wait_s": 120,
+ "chat_line": "09-29 15:00:42.718  6546  6612 I EdgeSLMChat: chat ready: model=gemma4-l256 load_ms=3992 strict=true net=通信は使っていません",
+ "chat_ready": true,
+ "pid_g4_before": "6546",
+ "pid_g4_after": "6546",
+ "meminfo_g4": "      Unknown      626      604        0        4     1092                           \r\n        TOTAL   175014   151384    16680      277   247896   269960    80664   184268\r\n            Graphics:    47680                          47684\r\n             Unknown:                                    5588\r\n           TOTAL PSS:   175014            TOTAL RSS:   247896       TOTAL SWAP PSS:      277\r\n",
+ "vit": {
+  "ok": true,
+  "open_ms": 681.4039580821991,
+  "run_ms": 159.3207290172577,
+  "backend": "QNN HTP - EPContext - all nodes",
+  "error": null,
+  "dmabuf_mib": {
+   "before": 0.0,
+   "after_open": 152.296875,
+   "after_run": 152.296875,
+   "settled": 152.296875
+  },
+  "rss_mib": {
+   "before": 88.94921875,
+   "after_open": 112.9921875,
+   "after_run": 115.5078125,
+   "settled": 115.5078125
+  },
+  "hwm_open_mib": 278.38671875,
+  "mem_available_mib_before": 2490.765625,
+  "raw": {
+   "baseline": {
+    "cma_free_kb": 0,
+    "dmabuf": {
+     "bytes": 0,
+     "count": 0
+    },
+    "label": "baseline",
+    "mem_available_kb": 2550488,
+    "mem_free_kb": 466304,
+    "pss_kb": 29293,
+    "rss_anon_kb": 29232,
+    "rss_file_kb": 61044,
+    "rss_shmem_kb": 808,
+    "swap_free_kb": 3190080,
+    "t_ms": 1181203777.446954,
+    "vm_hwm_kb": 91084,
+    "vm_rss_kb": 91084,
+    "vm_size_kb": 17597536,
+    "vm_swap_kb": 24324
+   },
+   "final": {
+    "cma_free_kb": 22996,
+    "dmabuf": {
+     "bytes": 0,
+     "count": 0
+    },
+    "label": "final",
+    "mem_available_kb": 2504624,
+    "mem_free_kb": 375792,
+    "pss_kb": 53560,
+    "rss_anon_kb": 37852,
+    "rss_file_kb": 78036,
+    "rss_shmem_kb": 820,
+    "swap_free_kb": 3190128,
+    "t_ms": 1181215704.190075,
+    "vm_hwm_kb": 285068,
+    "vm_rss_kb": 116708,
+    "vm_size_kb": 17607384,
+    "vm_swap_kb": 23856
+   },
+   "hwm_reset_supported": true,
+   "job_id": "vit_coexist_b70_21x30_nosrq",
+   "ok": true,
+   "pid": 7891,
+   "power_profile": "default(unsigned_pd)",
+   "records": [
+    {
+     "after_open": {
+      "cma_free_kb": 1148,
+      "dmabuf": {
+       "bytes": 159694848,
+       "count": 7
+      },
+      "label": "after_open",
+      "mem_available_kb": 2298868,
+      "mem_free_kb": 236184,
+      "pss_kb": 53254,
+      "rss_anon_kb": 37460,
+      "rss_file_kb": 77424,
+      "rss_shmem_kb": 820,
+      "swap_free_kb": 3190092,
+      "t_ms": 1181204464.649767,
+      "vm_hwm_kb": 285068,
+      "vm_rss_kb": 115704,
+      "vm_size_kb": 17861176,
+      "vm_swap_kb": 23892
+     },
+     "after_run": {
+      "cma_free_kb": 0,
+      "dmabuf": {
+       "bytes": 159694848,
+       "count": 7
+      },
+      "label": "after_run",
+      "mem_available_kb": 2296400,
+      "mem_free_kb": 233660,
+      "pss_kb": 55574,
+      "rss_anon_kb": 39620,
+      "rss_file_kb": 77840,
+      "rss_shmem_kb": 820,
+      "swap_free_kb": 3190092,
+      "t_ms": 1181204628.63435,
+      "vm_hwm_kb": 285068,
+      "vm_rss_kb": 118280,
+      "vm_size_kb": 17864112,
+      "vm_swap_kb": 23892
+     },
+     "backend": "QNN HTP - EPContext - all nodes",
+     "before": {
+      "cma_free_kb": 0,
+      "dmabuf": {
+       "bytes": 0,
+       "count": 0
+      },
+      "label": "before",
+      "mem_available_kb": 2550544,
+      "mem_free_kb": 466240,
+      "pss_kb": 29305,
+      "rss_anon_kb": 29232,
+      "rss_file_kb": 61044,
+      "rss_shmem_kb": 808,
+      "swap_free_kb": 3190080,
+      "t_ms": 1181203779.482736,
+      "vm_hwm_kb": 91084,
+      "vm_rss_kb": 91084,
+      "vm_size_kb": 17597536,
+      "vm_swap_kb": 24324
+     },
+     "index": 0,
+     "model": "models/vit/vit_b70_21x30_nosrq_epctx.onnx",
+     "open_ms": 681.4039580821991,
+     "open_ok": true,
+     "run_ms": 159.3207290172577,
+     "run_ok": true,
+     "settled": {
+      "cma_free_kb": 0,
+      "dmabuf": {
+       "bytes": 159694848,
+       "count": 7
+      },
+      "label": "settled",
+      "mem_available_kb": 2310136,
+      "mem_free_kb": 246764,
+      "pss_kb": 55552,
+      "rss_anon_kb": 39620,
+      "rss_file_kb": 77840,
+      "rss_shmem_kb": 820,
+      "swap_free_kb": 3190092,
+      "t_ms": 1181205637.053152,
+      "vm_hwm_kb": 285068,
+      "vm_rss_kb": 118280,
+      "vm_size_kb": 17864112,
+      "vm_swap_kb": 23892
+     }
+    }
+   ],
+   "releases": [
+    {
+     "cma_free_kb": 22996,
+     "dmabuf": {
+      "bytes": 0,
+      "count": 0
+     },
+     "label": "release_one",
+     "mem_available_kb": 2443680,
+     "mem_free_kb": 375792,
+     "pss_kb": 53560,
+     "rss_anon_kb": 37852,
+     "rss_file_kb": 78036,
+     "rss_shmem_kb": 820,
+     "swap_free_kb": 3190128,
+     "t_ms": 1181215696.546065,
+     "vm_hwm_kb": 285068,
+     "vm_rss_kb": 116708,
+     "vm_size_kb": 17607384,
+     "vm_swap_kb": 23856
+    }
+   ],
+   "samples_file": "out/memprobe_vit_coexist_b70_21x30_nosrq_samples.csv",
+   "steps_file": "out/memprobe_vit_coexist_b70_21x30_nosrq_steps.jsonl",
+   "task": "memprobe",
+   "versions": {
+    "onnxruntime": "1.27.0",
+    "ort_api_version": 27,
+    "qnn_runtime": "see manifest (bundled QAIRT set)"
+   },
+   "_kind": "result",
+   "_wall_s": 13.4
+  }
+ },
+ "lmk": [],
+ "pass": true
+}

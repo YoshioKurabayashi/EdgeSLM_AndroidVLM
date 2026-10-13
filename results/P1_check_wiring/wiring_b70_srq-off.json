@@ -1,0 +1,501 @@
+{
+ "budget": 70,
+ "device": "cuda",
+ "srq_mode": "off",
+ "entry_ranges": {
+  "inputs_embeds_QuantizeLinear": {
+   "scale": 0.00016091164434328675,
+   "zero_point": 43690,
+   "qtype": "<u2",
+   "lo": -7.03023,
+   "hi": 3.515115
+  },
+  "inputs_embeds_prescaled_QuantizeLinear": {
+   "scale": 4.105744210392004e-06,
+   "zero_point": 43690,
+   "qtype": "<u2",
+   "lo": -0.17938,
+   "hi": 0.08969
+  },
+  "ple_tok_QuantizeLinear": {
+   "scale": 0.00041246943874284625,
+   "zero_point": 35902,
+   "qtype": "<u2",
+   "lo": -14.808478,
+   "hi": 12.222707
+  },
+  "ple_all_QuantizeLinear": {
+   "scale": 0.0006107384106144309,
+   "zero_point": 28328,
+   "qtype": "<u2",
+   "lo": -17.300998,
+   "hi": 22.723744
+  }
+ },
+ "runs": [
+  {
+   "id": "car_02a",
+   "T": 117,
+   "n_image_tokens": 70,
+   "image_span": [
+    24,
+    93
+   ],
+   "sec": 38.5,
+   "A_vs_B": {
+    "rel_l2_max": 0.0,
+    "rel_l2_argmax": null,
+    "rel_l2_mean": 0.0,
+    "rel_l2_last": 0.0,
+    "top1_agree": 1.0,
+    "top1_last_same": true,
+    "max_abs": 0.0,
+    "argmax_where": null
+   },
+   "B_vs_C": {
+    "rel_l2_max": 2.5451012334087864e-05,
+    "rel_l2_argmax": 114,
+    "rel_l2_mean": 1.4302353292805492e-06,
+    "rel_l2_last": 1.0642164625096484e-06,
+    "top1_agree": 1.0,
+    "top1_last_same": true,
+    "max_abs": 0.0011513233184814453,
+    "argmax_where": "text_after"
+   },
+   "A_vs_C": {
+    "rel_l2_max": 2.5451012334087864e-05,
+    "rel_l2_argmax": 114,
+    "rel_l2_mean": 1.4302353292805492e-06,
+    "rel_l2_last": 1.0642164625096484e-06,
+    "top1_agree": 1.0,
+    "top1_last_same": true,
+    "max_abs": 0.0011513233184814453,
+    "argmax_where": "text_after"
+   },
+   "values": {
+    "inputs_embeds_text": {
+     "min": -2.60091,
+     "max": 1.30046,
+     "rms": 0.96627,
+     "p0.1": -2.52656,
+     "p1": -2.21246,
+     "p50": 0.0,
+     "p99": 1.26328,
+     "p99.9": 1.30046
+    },
+    "inputs_embeds_image": {
+     "min": -3.44871,
+     "max": 3.54157,
+     "rms": 0.53177,
+     "p0.1": -1.93517,
+     "p1": -1.28664,
+     "p50": -0.0107,
+     "p99": 1.2707,
+     "p99.9": 1.84911
+    },
+    "ple_tok_image(pad)": {
+     "min": -11.70524,
+     "max": 13.42216,
+     "rms": 0.97913,
+     "p0.1": -6.65285,
+     "p1": -2.28423,
+     "p50": 0.0,
+     "p99": 2.2622,
+     "p99.9": 7.89199
+    },
+    "ple_all_text": {
+     "min": -16.69013,
+     "max": 22.72383,
+     "rms": 0.95332,
+     "p0.1": -7.72056,
+     "p1": -2.02889,
+     "p50": -0.00031,
+     "p99": 1.92725,
+     "p99.9": 6.24508
+    },
+    "ple_all_image": {
+     "min": -9.04266,
+     "max": 12.28385,
+     "rms": 0.72942,
+     "p0.1": -4.6441,
+     "p1": -1.74144,
+     "p50": -6e-05,
+     "p99": 1.74332,
+     "p99.9": 5.47813
+    },
+    "outside_rate": {
+     "inputs_embeds_text": 0.0,
+     "inputs_embeds_image": 1.9e-05,
+     "prescaled_image": 1.9e-05,
+     "ple_tok_image(pad)": 0.000112,
+     "ple_all_text": 1.2e-05,
+     "ple_all_image": 0.0
+    }
+   },
+   "clip_effect": {
+    "prompt_logits_vs_noclip": {
+     "rel_l2_max": 0.0179875660687685,
+     "rel_l2_argmax": 114,
+     "rel_l2_mean": 0.0007403409108519554,
+     "rel_l2_last": 0.0005876290379092097,
+     "top1_agree": 1.0,
+     "top1_last_same": true,
+     "max_abs": 0.7993509769439697,
+     "argmax_where": "text_after"
+    },
+    "answer_noclip": "画像から読み取れる情報に基づき、案内標識の具体的な地名は特定できません。\n\n画像は、道路標識や交通標識のようなものを示していますが、具体的な地名や場所の名前を特定するための情報が不足しています",
+    "answer_clip": "画像から読み取れる情報に基づき、案内標識の具体的な地名は特定できません。\n\n画像は、道路標識や交通標識のようなものを示していますが、具体的な地名や場所の名前を特定するための情報が不足しています",
+    "answer_same": true
+   },
+   "srq": false
+  },
+  {
+   "id": "syn_notice_La",
+   "T": 107,
+   "n_image_tokens": 70,
+   "image_span": [
+    24,
+    93
+   ],
+   "sec": 33.9,
+   "A_vs_B": {
+    "rel_l2_max": 0.0,
+    "rel_l2_argmax": null,
+    "rel_l2_mean": 0.0,
+    "rel_l2_last": 0.0,
+    "top1_agree": 0.9999999403953552,
+    "top1_last_same": true,
+    "max_abs": 0.0,
+    "argmax_where": null
+   },
+   "B_vs_C": {
+    "rel_l2_max": 6.767459126422182e-06,
+    "rel_l2_argmax": 47,
+    "rel_l2_mean": 1.3134657592672738e-06,
+    "rel_l2_last": 1.5702328255429165e-06,
+    "top1_agree": 0.9999999403953552,
+    "top1_last_same": true,
+    "max_abs": 0.00012493133544921875,
+    "argmax_where": "image"
+   },
+   "A_vs_C": {
+    "rel_l2_max": 6.767459126422182e-06,
+    "rel_l2_argmax": 47,
+    "rel_l2_mean": 1.3134657592672738e-06,
+    "rel_l2_last": 1.5702328255429165e-06,
+    "top1_agree": 0.9999999403953552,
+    "top1_last_same": true,
+    "max_abs": 0.00012493133544921875,
+    "argmax_where": "image"
+   },
+   "values": {
+    "inputs_embeds_text": {
+     "min": -2.60091,
+     "max": 1.30046,
+     "rms": 0.96754,
+     "p0.1": -2.52656,
+     "p1": -2.30874,
+     "p50": 0.0,
+     "p99": 1.26328,
+     "p99.9": 1.30046
+    },
+    "inputs_embeds_image": {
+     "min": -3.28683,
+     "max": 3.40963,
+     "rms": 0.5824,
+     "p0.1": -2.15633,
+     "p1": -1.44399,
+     "p50": -0.01924,
+     "p99": 1.39934,
+     "p99.9": 2.02154
+    },
+    "ple_tok_image(pad)": {
+     "min": -11.70524,
+     "max": 13.42216,
+     "rms": 0.97913,
+     "p0.1": -6.65285,
+     "p1": -2.28423,
+     "p50": 0.0,
+     "p99": 2.2622,
+     "p99.9": 7.89199
+    },
+    "ple_all_text": {
+     "min": -16.69013,
+     "max": 22.72383,
+     "rms": 0.95785,
+     "p0.1": -7.83756,
+     "p1": -2.07035,
+     "p50": -0.00089,
+     "p99": 1.94474,
+     "p99.9": 6.31073
+    },
+    "ple_all_image": {
+     "min": -9.69369,
+     "max": 14.41744,
+     "rms": 0.74475,
+     "p0.1": -4.83009,
+     "p1": -1.77749,
+     "p50": -0.00047,
+     "p99": 1.78304,
+     "p99.9": 5.28421
+    },
+    "outside_rate": {
+     "inputs_embeds_text": 0.0,
+     "inputs_embeds_image": 0.0,
+     "prescaled_image": 0.0,
+     "ple_tok_image(pad)": 0.000112,
+     "ple_all_text": 1.5e-05,
+     "ple_all_image": 0.0
+    }
+   },
+   "clip_effect": {
+    "prompt_logits_vs_noclip": {
+     "rel_l2_max": 0.016903797164559364,
+     "rel_l2_argmax": 26,
+     "rel_l2_mean": 0.001657174900174141,
+     "rel_l2_last": 0.006403788924217224,
+     "top1_agree": 0.9999999403953552,
+     "top1_last_same": true,
+     "max_abs": 0.43665146827697754,
+     "argmax_where": "image"
+    },
+    "answer_noclip": "画像から読み取れる情報に基づくと、**「点検」**に関する具体的な日付や時間は明記されていません。\n\nこの情報だけでは、点検の具体的な日時を特定することはできません。",
+    "answer_clip": "画像から読み取れる情報に基づくと、**「点検」**に関する具体的な日付や時間は明記されていません。\n\nこの情報だけでは、点検の具体的な日時を特定することはできません。",
+    "answer_same": true
+   },
+   "srq": false
+  },
+  {
+   "id": "wild_10",
+   "T": 114,
+   "n_image_tokens": 70,
+   "image_span": [
+    24,
+    93
+   ],
+   "sec": 34.7,
+   "A_vs_B": {
+    "rel_l2_max": 0.0,
+    "rel_l2_argmax": null,
+    "rel_l2_mean": 0.0,
+    "rel_l2_last": 0.0,
+    "top1_agree": 1.0,
+    "top1_last_same": true,
+    "max_abs": 0.0,
+    "argmax_where": null
+   },
+   "B_vs_C": {
+    "rel_l2_max": 3.1276349545805715e-06,
+    "rel_l2_argmax": 91,
+    "rel_l2_mean": 1.2172585002190317e-06,
+    "rel_l2_last": 1.4903677083566436e-06,
+    "top1_agree": 1.0,
+    "top1_last_same": true,
+    "max_abs": 6.818771362304688e-05,
+    "argmax_where": "image"
+   },
+   "A_vs_C": {
+    "rel_l2_max": 3.1276349545805715e-06,
+    "rel_l2_argmax": 91,
+    "rel_l2_mean": 1.2172585002190317e-06,
+    "rel_l2_last": 1.4903677083566436e-06,
+    "top1_agree": 1.0,
+    "top1_last_same": true,
+    "max_abs": 6.818771362304688e-05,
+    "argmax_where": "image"
+   },
+   "values": {
+    "inputs_embeds_text": {
+     "min": -2.60091,
+     "max": 1.30046,
+     "rms": 0.96648,
+     "p0.1": -2.52656,
+     "p1": -2.28431,
+     "p50": 0.0,
+     "p99": 1.26328,
+     "p99.9": 1.30046
+    },
+    "inputs_embeds_image": {
+     "min": -3.64479,
+     "max": 3.18883,
+     "rms": 0.4976,
+     "p0.1": -1.83436,
+     "p1": -1.17644,
+     "p50": -0.01071,
+     "p99": 1.19818,
+     "p99.9": 1.79167
+    },
+    "ple_tok_image(pad)": {
+     "min": -11.70524,
+     "max": 13.42216,
+     "rms": 0.97913,
+     "p0.1": -6.65285,
+     "p1": -2.28423,
+     "p50": 0.0,
+     "p99": 2.2622,
+     "p99.9": 7.89199
+    },
+    "ple_all_text": {
+     "min": -16.69013,
+     "max": 22.72383,
+     "rms": 0.95928,
+     "p0.1": -8.03104,
+     "p1": -2.03322,
+     "p50": -0.00263,
+     "p99": 1.94493,
+     "p99.9": 6.54049
+    },
+    "ple_all_image": {
+     "min": -8.63951,
+     "max": 12.52685,
+     "rms": 0.7274,
+     "p0.1": -4.66311,
+     "p1": -1.74652,
+     "p50": -0.00024,
+     "p99": 1.73989,
+     "p99.9": 5.47101
+    },
+    "outside_rate": {
+     "inputs_embeds_text": 0.0,
+     "inputs_embeds_image": 0.0,
+     "prescaled_image": 0.0,
+     "ple_tok_image(pad)": 0.000112,
+     "ple_all_text": 1.3e-05,
+     "ple_all_image": 0.0
+    }
+   },
+   "clip_effect": {
+    "prompt_logits_vs_noclip": {
+     "rel_l2_max": 0.0020361950155347586,
+     "rel_l2_argmax": 103,
+     "rel_l2_mean": 0.0007060285424813628,
+     "rel_l2_last": 0.0006777828093618155,
+     "top1_agree": 1.0,
+     "top1_last_same": true,
+     "max_abs": 0.029781818389892578,
+     "argmax_where": "text_after"
+    },
+    "answer_noclip": "画像から、道路の制限速度を特定することはできません。\n\n画像には、道路の標識や交通標識が見当たりませんが、画像から速度制限に関する情報を見つけることはできません。",
+    "answer_clip": "画像から、道路の制限速度を特定することはできません。\n\n画像には、道路の標識や交通標識が見当たりませんが、画像から速度制限に関する情報を見つけることはできません。",
+    "answer_same": true
+   },
+   "srq": false
+  },
+  {
+   "id": "vg_00",
+   "T": 106,
+   "n_image_tokens": 70,
+   "image_span": [
+    24,
+    93
+   ],
+   "sec": 37.5,
+   "A_vs_B": {
+    "rel_l2_max": 0.0,
+    "rel_l2_argmax": null,
+    "rel_l2_mean": 0.0,
+    "rel_l2_last": 0.0,
+    "top1_agree": 1.0,
+    "top1_last_same": true,
+    "max_abs": 0.0,
+    "argmax_where": null
+   },
+   "B_vs_C": {
+    "rel_l2_max": 2.7001290163752856e-06,
+    "rel_l2_argmax": 70,
+    "rel_l2_mean": 1.1686399830068694e-06,
+    "rel_l2_last": 1.2815191894333111e-06,
+    "top1_agree": 1.0,
+    "top1_last_same": true,
+    "max_abs": 6.723403930664062e-05,
+    "argmax_where": "image"
+   },
+   "A_vs_C": {
+    "rel_l2_max": 2.7001290163752856e-06,
+    "rel_l2_argmax": 70,
+    "rel_l2_mean": 1.1686399830068694e-06,
+    "rel_l2_last": 1.2815191894333111e-06,
+    "top1_agree": 1.0,
+    "top1_last_same": true,
+    "max_abs": 6.723403930664062e-05,
+    "argmax_where": "image"
+   },
+   "values": {
+    "inputs_embeds_text": {
+     "min": -2.60091,
+     "max": 1.30046,
+     "rms": 0.96894,
+     "p0.1": -2.52656,
+     "p1": -2.32087,
+     "p50": 0.0,
+     "p99": 1.26328,
+     "p99.9": 1.30046
+    },
+    "inputs_embeds_image": {
+     "min": -3.12071,
+     "max": 3.09258,
+     "rms": 0.48886,
+     "p0.1": -1.86475,
+     "p1": -1.18825,
+     "p50": -0.01403,
+     "p99": 1.17167,
+     "p99.9": 1.78669
+    },
+    "ple_tok_image(pad)": {
+     "min": -11.70524,
+     "max": 13.42216,
+     "rms": 0.97913,
+     "p0.1": -6.65285,
+     "p1": -2.28423,
+     "p50": 0.0,
+     "p99": 2.2622,
+     "p99.9": 7.89199
+    },
+    "ple_all_text": {
+     "min": -16.69013,
+     "max": 22.72383,
+     "rms": 0.96465,
+     "p0.1": -7.86378,
+     "p1": -2.07357,
+     "p50": 0.00021,
+     "p99": 1.97976,
+     "p99.9": 6.56194
+    },
+    "ple_all_image": {
+     "min": -8.43435,
+     "max": 14.45883,
+     "rms": 0.72321,
+     "p0.1": -4.63491,
+     "p1": -1.73916,
+     "p50": -3e-05,
+     "p99": 1.72633,
+     "p99.9": 5.30445
+    },
+    "outside_rate": {
+     "inputs_embeds_text": 0.0,
+     "inputs_embeds_image": 0.0,
+     "prescaled_image": 0.0,
+     "ple_tok_image(pad)": 0.000112,
+     "ple_all_text": 1.6e-05,
+     "ple_all_image": 0.0
+    }
+   },
+   "clip_effect": {
+    "prompt_logits_vs_noclip": {
+     "rel_l2_max": 0.0026328866370022297,
+     "rel_l2_argmax": 50,
+     "rel_l2_mean": 0.0008166335755959153,
+     "rel_l2_last": 0.0025785791222006083,
+     "top1_agree": 1.0,
+     "top1_last_same": true,
+     "max_abs": 0.0428619384765625,
+     "argmax_where": "image"
+    },
+    "answer_noclip": "画像から判断すると、これは**「車」**の画像です。\n\nもし、あなたが「場所」について尋ねているのであれば、画像自体は特定の場所を示していませんが、**車**の画像です。",
+    "answer_clip": "画像から判断すると、これは**「車」**の画像です。\n\nもし、あなたが「場所」について尋ねているのであれば、画像自体は特定の場所を示していませんが、**車**の画像です。",
+    "answer_same": true
+   },
+   "srq": false
+  }
+ ]
+}

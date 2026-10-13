@@ -1,0 +1,46 @@
+--------- beginning of main
+09-30 10:24:28.616 24819 24819 I EdgeSLMVlm: vlm focus: true
+09-30 10:24:31.813 24819 24819 I EdgeSLMVlm: vlm touch: down x=781 y=1115
+09-30 10:24:31.851 24819 24819 I EdgeSLMVlm: vlm touch: up handled=true
+09-30 10:24:31.858 24819 24819 I EdgeSLMVlm: vlm click: camera
+09-30 10:24:32.003 24819 24819 I EdgeSLMVlm: vlm focus: false
+09-30 10:24:32.014 24819 24850 I EdgeSLMVlm: vlm text ready: ok=true load_ms=2941 strict=true error=
+09-30 10:24:32.046 24819 24850 I EdgeSLMVlm: vlm vit warm: requested
+09-30 10:24:37.037 24819 25291 I EdgeSLMVlm: vlm bitmap: file=4032x3024 sample=4 exif=6 -> 756x1008
+09-30 10:24:37.140 24819 24819 I EdgeSLMVlm: vlm focus: true
+09-30 10:24:37.364 24819 25291 I EdgeSLMVlm: vlm image: 756x1008 load_ms=102 prep_ms=19 wait_text_ms=0 vit_wall_ms=285 vit_npu_ms=238.4 strict=true out=out/vlm/vlm_vit_1790731477078_0_cam_image_embeds.bin
+09-30 10:24:38.856 24819 24819 I EdgeSLMVlm: vlm touch: down x=772 y=1411
+09-30 10:24:38.905 24819 24819 I EdgeSLMVlm: vlm touch: up handled=true
+09-30 10:24:38.915 24819 24819 I EdgeSLMVlm: vlm click: suggestion '何が写っていますか？'
+09-30 10:24:38.934 24819 24819 I EdgeSLMVlm: vlm prompt first=true n=108 ids=2,105,9731,107,213371,236945,32613,90166,236951,70622,237000,94951,237007,239309,241910,237000,238843,19230,15142,236924,106,107,105,2364,107,255999,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258882,237864,237053,238214,32881,237116,237536,106,107,105,4368,107
+09-30 10:24:40.633 24819 24819 I EdgeSLMVlm: vlm answer: 画像には、**眼鏡**が写っています。
+09-30 10:24:40.633 24819 24819 I EdgeSLMVlm: vlm stats: first=true image_s=0.41 vit_npu_ms=238.4 first_s=0.92 total_s=1.68 median_ms=78.8 new=11 image_tokens_fed=70 abs_pos=118 cache_len=256 strict_text=true strict_vit=true Tm=16 prefill_runs=7 truncated=false
+09-30 10:24:42.327 24819 24819 I EdgeSLMVlm: vlm touch: down x=763 y=1260
+09-30 10:24:42.376 24819 24819 I EdgeSLMVlm: vlm touch: up handled=true
+09-30 10:24:42.378 24819 24819 I EdgeSLMVlm: vlm click: suggestion 'この画像を説明してください。'
+09-30 10:24:42.380 24819 24819 I EdgeSLMVlm: vlm prompt first=false n=15 ids=106,107,105,2364,107,8978,232468,34084,49391,236924,106,107,105,4368,107
+09-30 10:24:49.877 24819 24819 I EdgeSLMVlm: vlm touch: down x=865 y=2149
+09-30 10:24:50.301 24819 24819 I EdgeSLMVlm: vlm touch: up handled=true
+09-30 10:24:50.387 24819 24819 I EdgeSLMVlm: vlm answer: この画像には、**眼鏡**が写っています。⏎⏎**詳細な説明:**⏎⏎* **被写体:** 一組の眼鏡（フレームとレンズ）が写っています。⏎* **フレーム:** フレームは比較的細く、色は**ピンクや赤みがかった色**に見えます。⏎* **レンズ:** レンズは透明で、光を透過させています。⏎* **背景:** 眼鏡は、木目調の**茶色い表面**
+09-30 10:24:50.388 24819 24819 I EdgeSLMVlm: vlm stats: first=false image_s=0.41 vit_npu_ms=238.4 first_s=0.22 total_s=7.99 median_ms=81.5 new=96 image_tokens_fed=0 abs_pos=228 cache_len=256 strict_text=true strict_vit=true Tm=16 prefill_runs=1 truncated=true
+09-30 10:24:52.463 24819 24819 I EdgeSLMVlm: vlm touch: down x=689 y=894
+09-30 10:24:52.529 24819 24819 I EdgeSLMVlm: vlm touch: up handled=true
+09-30 10:24:52.545 24819 24819 I EdgeSLMVlm: vlm click: camera
+09-30 10:24:52.612 24819 24819 I EdgeSLMVlm: vlm focus: false
+09-30 10:24:57.864 24819 25621 I EdgeSLMVlm: vlm bitmap: file=4032x3024 sample=4 exif=6 -> 756x1008
+09-30 10:24:57.939 24819 24819 I EdgeSLMVlm: vlm focus: true
+09-30 10:24:58.145 24819 25621 I EdgeSLMVlm: vlm image: 756x1008 load_ms=83 prep_ms=13 wait_text_ms=0 vit_wall_ms=251 vit_npu_ms=210.3 strict=true out=out/vlm/vlm_vit_1790731497893_1_cam_image_embeds.bin
+09-30 10:24:59.634 24819 24819 I EdgeSLMVlm: vlm touch: down x=755 y=1551
+09-30 10:24:59.702 24819 24819 I EdgeSLMVlm: vlm touch: up handled=true
+09-30 10:24:59.705 24819 24819 I EdgeSLMVlm: vlm click: suggestion '書かれている文字を読んでください。'
+09-30 10:24:59.714 24819 24819 I EdgeSLMVlm: vlm prompt first=true n=109 ids=2,105,9731,107,213371,236945,32613,90166,236951,70622,237000,94951,237007,239309,241910,237000,238843,19230,15142,236924,106,107,105,2364,107,255999,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258880,258882,238211,208055,31818,237051,150157,15142,236924,106,107,105,4368,107
+09-30 10:25:01.770 24819 24819 I EdgeSLMVlm: vlm answer: 画像に書かれている文字は「**WHITE BOARD MARKER**」です。
+09-30 10:25:01.771 24819 24819 I EdgeSLMVlm: vlm stats: first=true image_s=0.35 vit_npu_ms=210.3 first_s=0.83 total_s=2.03 median_ms=77.2 new=17 image_tokens_fed=70 abs_pos=125 cache_len=256 strict_text=true strict_vit=true Tm=16 prefill_runs=7 truncated=false
+09-30 10:25:03.097 24819 24819 I EdgeSLMVlm: vlm touch: down x=753 y=1280
+09-30 10:25:03.154 24819 24819 I EdgeSLMVlm: vlm touch: up handled=true
+09-30 10:25:03.164 24819 24819 I EdgeSLMVlm: vlm click: suggestion 'この画像を説明してください。'
+09-30 10:25:03.168 24819 24819 I EdgeSLMVlm: vlm prompt first=false n=15 ids=106,107,105,2364,107,8978,232468,34084,49391,236924,106,107,105,4368,107
+09-30 10:25:08.760 24819 24819 I EdgeSLMVlm: vlm touch: down x=836 y=2067
+09-30 10:25:09.090 24819 24819 I EdgeSLMVlm: vlm touch: up handled=true
+09-30 10:25:10.994 24819 24819 I EdgeSLMVlm: vlm answer: この画像は、**白いホワイトボードマーカー**が写っているクローズアップ写真です。⏎⏎**主な特徴:**⏎⏎* **対象物:** 中央に、黒いペン（マーカー）が写っています。⏎* **文字:** ペン本体には「**WHITE BOARD MARKER**」という文字が書かれています。⏎* **背景:** 背景は、濃い茶色や木目のような質感を持つ表面（おそらく机やテーブル）で、
+09-30 10:25:10.996 24819 24819 I EdgeSLMVlm: vlm stats: first=false image_s=0.35 vit_npu_ms=210.3 first_s=0.24 total_s=7.80 median_ms=79.6 new=96 image_tokens_fed=0 abs_pos=235 cache_len=256 strict_text=true strict_vit=true Tm=16 prefill_runs=1 truncated=true

@@ -1,0 +1,146 @@
+--------- beginning of main
+10-03 05:14:34.225 13296 13296 I EdgeSLMRunner: hold: starting RunnerService with job=jobs/vlm_eval_000.json (screen stays in front)
+10-03 05:14:34.253 13296 13322 I EdgeSLMRunner: externalFilesDir=/storage/emulated/0/Android/data/org.edgeslm.vlm/files
+10-03 05:14:34.288 13296 13322 I EdgeSLMRunner: versions={"onnxruntime":"1.27.0","ort_api_version":27,"qnn_runtime":"see manifest (bundled QAIRT set)"}
+10-03 05:14:34.387 13296 13322 I EdgeSLMRunner: job=vlm_eval_000.json nativeLibDir=/data/app/~~MMTFdrVa0DoX0cmuHDWRzg==/org.edgeslm.vlm-6sdkRsECJaN6fqko7h2flw==/lib/arm64
+10-03 05:14:34.399 13296 13322 I EdgeSLMRunner: runtime.set_fastrpc_paths=false: leaving ADSP_LIBRARY_PATH to ORT
+10-03 05:14:34.437 13296 13322 I EdgeSLMRunner: model=/storage/emulated/0/Android/data/org.edgeslm.vlm/files/models/ops/g4t16t_W256_a16w8_rhs8_epctx.onnx
+10-03 05:14:35.042   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.043   688   688 I lowmemorykiller: Kill 'android.process.acore' (12668), uid 10115, oom_score_adj 915 to free 67408kB rss, 30060kB swap; reason: device is in direct reclaim and low on memory
+10-03 05:14:35.070   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.071   688   688 I lowmemorykiller: Kill 'com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0' (13126), uid 99151, oom_score_adj 905 to free 91680kB rss, 33596kB swap; reason: low watermark is breached even after kill
+10-03 05:14:35.104   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.106   688   688 I lowmemorykiller: Kill 'com.google.android.googlequicksearchbox:googleapp' (13036), uid 10195, oom_score_adj 900 to free 291648kB rss, 23900kB swap; reason: low watermark is breached even after kill
+10-03 05:14:35.108   688   688 W lowmemorykiller: Failed to open /proc/13126/oom_score_adj; errno=2: process 13126 might have been killed
+10-03 05:14:35.111   688   688 W lowmemorykiller: Failed to open /proc/13126/oom_score_adj; errno=2: process 13126 might have been killed
+10-03 05:14:35.183   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.184   688   688 I lowmemorykiller: Kill 'com.sonymobile.transmitpower' (12500), uid 1001, oom_score_adj 800 to free 52132kB rss, 30444kB swap; reason: low watermark is breached even after kill
+10-03 05:14:35.185   688   688 W lowmemorykiller: Failed to open /proc/13036/oom_score_adj; errno=2: process 13036 might have been killed
+10-03 05:14:35.210   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.211   688   688 I lowmemorykiller: Kill 'com.google.process.gservices' (12649), uid 10183, oom_score_adj 700 to free 57636kB rss, 30240kB swap; reason: low watermark is breached even after kill
+10-03 05:14:35.236   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.237   688   688 I lowmemorykiller: Kill 'com.sony.uelog.service' (12501), uid 10178, oom_score_adj 500 to free 50192kB rss, 30864kB swap; reason: low watermark is breached even after kill
+10-03 05:14:35.262   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.264   688   688 I lowmemorykiller: Kill 'com.sonymobile.simplehome' (12513), uid 10259, oom_score_adj 250 to free 57380kB rss, 29740kB swap; reason: low watermark is breached even after kill
+10-03 05:14:35.291   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.304   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.306   688   688 I lowmemorykiller: Kill 'com.google.android.inputmethod.latin' (12522), uid 10207, oom_score_adj 200 to free 225236kB rss, 26496kB swap; reason: device is not responding
+10-03 05:14:35.360   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.372   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.374   688   688 I lowmemorykiller: Kill 'com.sonymobile.launcher' (9962), uid 10287, oom_score_adj 100 to free 145444kB rss, 26024kB swap; reason: device is not responding
+10-03 05:14:35.431   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.444   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.447   688   688 I lowmemorykiller: Kill 'com.google.android.gms' (9940), uid 10183, oom_score_adj 100 to free 123692kB rss, 27392kB swap; reason: device is not responding
+10-03 05:14:35.494   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.508   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.510   688   688 I lowmemorykiller: Kill 'com.sonymobile.sidesenseapp' (9925), uid 1000, oom_score_adj 100 to free 110636kB rss, 30008kB swap; reason: device is not responding
+10-03 05:14:35.540   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.551   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.553   688   688 I lowmemorykiller: Kill 'com.sonymobile.gameenhancer' (9963), uid 10260, oom_score_adj 100 to free 71588kB rss, 29088kB swap; reason: device is not responding
+10-03 05:14:35.580   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.592   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.595   688   688 I lowmemorykiller: Kill 'com.sonymobile.wallpaper.bq' (10343), uid 10317, oom_score_adj 100 to free 66912kB rss, 29312kB swap; reason: device is not responding
+10-03 05:14:35.643   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.655   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.657   688   688 I lowmemorykiller: Kill 'com.sonymobile.appprediction:appprediction' (17948), uid 10285, oom_score_adj 100 to free 53884kB rss, 38020kB swap; reason: device is not responding
+10-03 05:14:35.692   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.704   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.705   688   688 I lowmemorykiller: Kill 'com.google.android.googlequicksearchbox:interactor' (18232), uid 10195, oom_score_adj 100 to free 49412kB rss, 49000kB swap; reason: device is not responding
+10-03 05:14:35.755   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.767   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.769   688   688 I lowmemorykiller: Kill 'com.google.android.ext.services' (18357), uid 10327, oom_score_adj 100 to free 44524kB rss, 36272kB swap; reason: device is not responding
+10-03 05:14:35.781   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.791   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.792   688   688 I lowmemorykiller: Kill 'com.sonymobile.smartcharger' (18269), uid 1000, oom_score_adj 100 to free 44436kB rss, 36440kB swap; reason: device is not responding
+10-03 05:14:35.829   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.839   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.841   688   688 I lowmemorykiller: Kill 'com.android.smspush' (18335), uid 10295, oom_score_adj 100 to free 40232kB rss, 34620kB swap; reason: device is not responding
+10-03 05:14:35.868   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.891   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.893   688   688 I lowmemorykiller: Kill 'com.sonymobile.appprediction:appprediction' (13410), uid 10285, oom_score_adj 100 to free 55256kB rss, 34188kB swap; reason: device is not responding
+10-03 05:14:35.926   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.947   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:35.948   688   688 I lowmemorykiller: Kill 'com.google.android.as' (18246), uid 10179, oom_score_adj 100 to free 39304kB rss, 42272kB swap; reason: device is not responding
+10-03 05:14:35.997   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:36.019   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:36.021   688   688 I lowmemorykiller: Kill 'com.google.android.gms' (13355), uid 10183, oom_score_adj 0 to free 108552kB rss, 33164kB swap; reason: device is not responding
+10-03 05:14:36.062   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:36.175   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:36.176   688   688 I lowmemorykiller: Kill 'com.sonymobile.appprediction:appprediction' (13454), uid 10285, oom_score_adj 100 to free 55724kB rss, 34180kB swap; reason: device is not responding
+10-03 05:14:36.200   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:36.223   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:36.225   688   688 I lowmemorykiller: Kill 'com.sonymobile.launcher' (13339), uid 10287, oom_score_adj 0 to free 87264kB rss, 31928kB swap; reason: device is not responding
+10-03 05:14:36.284   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:36.297   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:36.298   688   688 I lowmemorykiller: Kill 'com.sonymobile.sidesenseapp' (13372), uid 1000, oom_score_adj 100 to free 83708kB rss, 31776kB swap; reason: device is not responding
+10-03 05:14:36.344   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:36.428   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:36.430   688   688 I lowmemorykiller: Kill 'com.sonymobile.gameenhancer' (13378), uid 10260, oom_score_adj 0 to free 85956kB rss, 32784kB swap; reason: device is not responding
+10-03 05:14:36.511   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:36.512   688   688 I lowmemorykiller: Kill 'com.sonymobile.appprediction:appprediction' (13529), uid 10285, oom_score_adj 100 to free 55624kB rss, 34180kB swap; reason: device is not responding
+10-03 05:14:36.547   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:36.549   688   688 I lowmemorykiller: Kill 'com.sonymobile.sidesenseapp' (13551), uid 1000, oom_score_adj 0 to free 58048kB rss, 34588kB swap; reason: device is not responding
+10-03 05:14:36.573   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:36.608   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:36.609   688   688 I lowmemorykiller: Kill 'com.sonymobile.gameenhancer' (13575), uid 10260, oom_score_adj 0 to free 44352kB rss, 37020kB swap; reason: device is not responding
+10-03 05:14:36.848   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:36.849   688   688 I lowmemorykiller: Kill 'com.sonymobile.appprediction:appprediction' (13590), uid 10285, oom_score_adj 100 to free 55544kB rss, 34240kB swap; reason: device is not responding
+10-03 05:14:36.916   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:36.918   688   688 I lowmemorykiller: Kill 'com.sonymobile.gameenhancer' (13608), uid 10260, oom_score_adj 0 to free 81428kB rss, 33104kB swap; reason: device is not responding
+10-03 05:14:36.947   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:36.960   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:36.961   688   688 I lowmemorykiller: Kill 'com.sonymobile.appprediction:appprediction' (13636), uid 10285, oom_score_adj 0 to free 40548kB rss, 37516kB swap; reason: device is not responding
+10-03 05:14:36.992   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.004   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.005   688   688 I lowmemorykiller: Kill 'org.edgeslm.vlm' (13296), uid 10368, oom_score_adj 0 to free 1631700kB rss, 22864kB swap; reason: device is not responding
+10-03 05:14:37.105   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.272   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.284   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.363   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.388   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.460   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.483   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.495   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.508   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.519   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.544   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.556   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.567   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.579   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.592   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.603   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.616   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.628   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.639   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.652   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.664   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.712   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.723   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.736   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.748   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.759   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.772   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.795   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.808   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.820   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.831   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.843   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.856   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.866   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.879   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.892   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.904   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.915   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.940   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.951   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.963   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.976   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:37.987   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:38.000   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:38.011   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:38.024   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:38.048   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:38.060   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:38.071   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:38.084   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0
+10-03 05:14:38.096   688   688 E lowmemorykiller: calc_zone_watermarks pgskip_deltas_val: 0 pgskip_deltas[PGSKIP_IDX(i++)]: 0

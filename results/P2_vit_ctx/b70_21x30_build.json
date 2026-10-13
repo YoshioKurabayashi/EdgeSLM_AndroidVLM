@@ -1,0 +1,134 @@
+{
+ "tag": "b70_21x30",
+ "grid": [
+  21,
+  30
+ ],
+ "variants": {
+  "nosrq": {
+   "final_qdq": "D:\\AI\\source\\n_chap5\\EdgeSLM_AndroidVLM\\work\\ops\\vit_b70_21x30\\vit_b70_21x30_nosrq_final_qdq.onnx",
+   "build_sec": 2690.8,
+   "dlc_mib": 152.1,
+   "ctx_bin": "D:\\AI\\source\\n_chap5\\EdgeSLM_AndroidVLM\\work\\ops\\vit_b70_21x30\\build_nosrq\\ctx_vit_b70_21x30_nosrq\\vit_b70_21x30_nosrq_ctx.SM8350.bin",
+   "ctx_mib": 165.4,
+   "verify": {
+    "all_pass": true,
+    "checks": [
+     {
+      "check": "C-1 float セグメント残存ゼロ",
+      "pass": true,
+      "detail": "計算ノード間・グラフI/O境界ともに float の残存はない"
+     },
+     {
+      "check": "C-5 BatchNormalization 残存ゼロ",
+      "pass": true,
+      "detail": "BatchNormalization なし"
+     },
+     {
+      "check": "C-2 socModel==0",
+      "pass": true,
+      "detail": "socModel=0"
+     },
+     {
+      "check": "C-3 backend_extensions config 未使用",
+      "pass": true,
+      "detail": "config 指定なし"
+     },
+     {
+      "check": "C-4 --preserve_io_datatype の前提充足",
+      "pass": true,
+      "detail": "C-1 pass 済みのモデルに付与"
+     }
+    ]
+   },
+   "epctx": {
+    "path": "D:\\AI\\source\\n_chap5\\EdgeSLM_AndroidVLM\\work\\ops\\vit_b70_21x30\\vit_b70_21x30_nosrq_epctx.onnx",
+    "bytes": 517,
+    "inputs": [
+     {
+      "name": "pixel_values",
+      "shape": [
+       1,
+       630,
+       768
+      ]
+     }
+    ],
+    "outputs": [
+     {
+      "name": "image_embeds",
+      "shape": [
+       1,
+       70,
+       1536
+      ]
+     }
+    ],
+    "io_ok": true
+   }
+  },
+  "srq": {
+   "final_qdq": "D:\\AI\\source\\n_chap5\\EdgeSLM_AndroidVLM\\work\\ops\\vit_b70_21x30\\vit_b70_21x30_srq_final_qdq.onnx",
+   "build_sec": 2786.9,
+   "dlc_mib": 152.2,
+   "ctx_bin": "D:\\AI\\source\\n_chap5\\EdgeSLM_AndroidVLM\\work\\ops\\vit_b70_21x30\\build_srq\\ctx_vit_b70_21x30_srq\\vit_b70_21x30_srq_ctx.SM8350.bin",
+   "ctx_mib": 177.5,
+   "verify": {
+    "all_pass": true,
+    "checks": [
+     {
+      "check": "C-1 float セグメント残存ゼロ",
+      "pass": true,
+      "detail": "計算ノード間・グラフI/O境界ともに float の残存はない"
+     },
+     {
+      "check": "C-5 BatchNormalization 残存ゼロ",
+      "pass": true,
+      "detail": "BatchNormalization なし"
+     },
+     {
+      "check": "C-2 socModel==0",
+      "pass": true,
+      "detail": "socModel=0"
+     },
+     {
+      "check": "C-3 backend_extensions config 未使用",
+      "pass": true,
+      "detail": "config 指定なし"
+     },
+     {
+      "check": "C-4 --preserve_io_datatype の前提充足",
+      "pass": true,
+      "detail": "C-1 pass 済みのモデルに付与"
+     }
+    ]
+   },
+   "epctx": {
+    "path": "D:\\AI\\source\\n_chap5\\EdgeSLM_AndroidVLM\\work\\ops\\vit_b70_21x30\\vit_b70_21x30_srq_epctx.onnx",
+    "bytes": 509,
+    "inputs": [
+     {
+      "name": "pixel_values",
+      "shape": [
+       1,
+       630,
+       768
+      ]
+     }
+    ],
+    "outputs": [
+     {
+      "name": "image_embeds",
+      "shape": [
+       1,
+       70,
+       1536
+      ]
+     }
+    ],
+    "io_ok": true
+   }
+  }
+ },
+ "sec": 2697.0
+}

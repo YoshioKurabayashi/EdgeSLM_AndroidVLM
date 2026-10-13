@@ -1,0 +1,44 @@
+{
+ "tag": "b70_21x30",
+ "scheme": "a16w8_rhs8",
+ "variants": {
+  "nosrq": {
+   "final_qdq": "D:\\AI\\source\\n_chap5\\EdgeSLM_AndroidVLM\\work\\ops\\vit_b70_21x30\\vit_b70_21x30_nosrq_final_qdq.onnx",
+   "size_mib": 149.9,
+   "inject": {
+    "written": 114,
+    "retyped_int8": 114,
+    "srq_inputs": 0,
+    "srq_outputs": 0,
+    "approx_from_float": {
+     "model.embed_vision.embedding_projection": 0.010952573269605637,
+     "model.vision_tower.patch_embedder.input_proj": 0.009809798561036587
+    },
+    "remaining_int4": 0,
+    "scale_floored": {
+     "model.embed_vision.embedding_projection": 0,
+     "model.vision_tower.patch_embedder.input_proj": 309
+    }
+   },
+   "downgrade": {
+    "skipped": [],
+    "n_rhs": 32,
+    "n_done": 32
+   },
+   "C1": {
+    "ok": true,
+    "detail": "計算ノード間・グラフI/O境界ともに float の残存はない"
+   },
+   "C5": {
+    "ok": true
+   },
+   "C14": {
+    "n_weights": 114,
+    "min_ratio": 0.015625,
+    "min_ratio_tensor": "val_2_quantized",
+    "ok": true
+   }
+  }
+ },
+ "sec": 15.9
+}

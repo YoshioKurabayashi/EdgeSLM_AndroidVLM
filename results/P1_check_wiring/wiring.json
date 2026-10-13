@@ -1,0 +1,572 @@
+{
+ "budget": 70,
+ "device": "cuda",
+ "entry_ranges": {
+  "inputs_embeds_QuantizeLinear": {
+   "scale": 0.00016091164434328675,
+   "zero_point": 43690,
+   "qtype": "<u2",
+   "lo": -7.03023,
+   "hi": 3.515115
+  },
+  "inputs_embeds_prescaled_QuantizeLinear": {
+   "scale": 4.105744210392004e-06,
+   "zero_point": 43690,
+   "qtype": "<u2",
+   "lo": -0.17938,
+   "hi": 0.08969
+  },
+  "ple_tok_QuantizeLinear": {
+   "scale": 0.00041246943874284625,
+   "zero_point": 35902,
+   "qtype": "<u2",
+   "lo": -14.808478,
+   "hi": 12.222707
+  },
+  "ple_all_QuantizeLinear": {
+   "scale": 0.0006107384106144309,
+   "zero_point": 28328,
+   "qtype": "<u2",
+   "lo": -17.300998,
+   "hi": 22.723744
+  }
+ },
+ "runs": [
+  {
+   "id": "car_02a",
+   "T": 117,
+   "n_image_tokens": 70,
+   "sec": 51.3,
+   "A_vs_B": {
+    "rel_l2_max": 0.0,
+    "rel_l2_mean": 0.0,
+    "rel_l2_last": 0.0,
+    "top1_agree": 1.0,
+    "top1_last_same": true,
+    "max_abs": 0.0
+   },
+   "B_vs_C": {
+    "rel_l2_max": 0.7623221278190613,
+    "rel_l2_mean": 0.1473308503627777,
+    "rel_l2_last": 0.12371750175952911,
+    "top1_agree": 0.7863247990608215,
+    "top1_last_same": true,
+    "max_abs": 9.853368759155273
+   },
+   "A_vs_C": {
+    "rel_l2_max": 0.7623221278190613,
+    "rel_l2_mean": 0.1473308503627777,
+    "rel_l2_last": 0.12371750175952911,
+    "top1_agree": 0.7863247990608215,
+    "top1_last_same": true,
+    "max_abs": 9.853368759155273
+   },
+   "values": {
+    "inputs_embeds_text": {
+     "min": -2.60091,
+     "max": 1.30046,
+     "rms": 0.96627,
+     "p0.1": -2.52656,
+     "p1": -2.21246,
+     "p50": 0.0,
+     "p99": 1.26328,
+     "p99.9": 1.30046
+    },
+    "inputs_embeds_image": {
+     "min": -3.53752,
+     "max": 3.87987,
+     "rms": 0.58073,
+     "p0.1": -2.05743,
+     "p1": -1.4097,
+     "p50": -0.01204,
+     "p99": 1.39002,
+     "p99.9": 2.00381
+    },
+    "ple_tok_image(pad)": {
+     "min": -11.70524,
+     "max": 13.42216,
+     "rms": 0.97913,
+     "p0.1": -6.65285,
+     "p1": -2.28423,
+     "p50": 0.0,
+     "p99": 2.2622,
+     "p99.9": 7.89199
+    },
+    "ple_all_text": {
+     "min": -16.69013,
+     "max": 22.72383,
+     "rms": 0.95332,
+     "p0.1": -7.72056,
+     "p1": -2.02889,
+     "p50": -0.00031,
+     "p99": 1.92725,
+     "p99.9": 6.24508
+    },
+    "ple_all_image": {
+     "min": -8.74264,
+     "max": 12.3281,
+     "rms": 0.73216,
+     "p0.1": -4.66014,
+     "p1": -1.75094,
+     "p50": -0.00022,
+     "p99": 1.75151,
+     "p99.9": 5.51225
+    },
+    "outside_rate": {
+     "inputs_embeds_text": 0.0,
+     "inputs_embeds_image": 9e-06,
+     "prescaled_image": 9e-06,
+     "ple_tok_image(pad)": 0.000112,
+     "ple_all_text": 1.2e-05,
+     "ple_all_image": 0.0
+    }
+   },
+   "clip_effect": {
+    "prompt_logits_vs_noclip": {
+     "rel_l2_max": 0.2687457799911499,
+     "rel_l2_mean": 0.11001820117235184,
+     "rel_l2_last": 0.11245489865541458,
+     "top1_agree": 0.8205128908157349,
+     "top1_last_same": true,
+     "max_abs": 9.10484790802002
+    },
+    "answer_noclip": "画像に写っている青い案内標識の文字は、**「御堂筋」**です。",
+    "answer_clip": "画像には、青い案内標識が写っていますが、**文字が不鮮明で、特定の地名を読み取ることはできません。**\n\nもし、標識の画像がより鮮明であれば、再度お送りいただけると"
+   },
+   "srq": true
+  },
+  {
+   "id": "syn_notice_La",
+   "T": 107,
+   "n_image_tokens": 70,
+   "sec": 38.3,
+   "A_vs_B": {
+    "rel_l2_max": 0.0,
+    "rel_l2_mean": 0.0,
+    "rel_l2_last": 0.0,
+    "top1_agree": 0.9999999403953552,
+    "top1_last_same": true,
+    "max_abs": 0.0
+   },
+   "B_vs_C": {
+    "rel_l2_max": 0.7623221278190613,
+    "rel_l2_mean": 0.15596280992031097,
+    "rel_l2_last": 0.16097265481948853,
+    "top1_agree": 0.8878504633903503,
+    "top1_last_same": false,
+    "max_abs": 9.7703857421875
+   },
+   "A_vs_C": {
+    "rel_l2_max": 0.7623221278190613,
+    "rel_l2_mean": 0.15596280992031097,
+    "rel_l2_last": 0.16097265481948853,
+    "top1_agree": 0.8878504633903503,
+    "top1_last_same": false,
+    "max_abs": 9.7703857421875
+   },
+   "values": {
+    "inputs_embeds_text": {
+     "min": -2.60091,
+     "max": 1.30046,
+     "rms": 0.96754,
+     "p0.1": -2.52656,
+     "p1": -2.30874,
+     "p50": 0.0,
+     "p99": 1.26328,
+     "p99.9": 1.30046
+    },
+    "inputs_embeds_image": {
+     "min": -3.18881,
+     "max": 3.63368,
+     "rms": 0.61799,
+     "p0.1": -2.194,
+     "p1": -1.5109,
+     "p50": -0.01437,
+     "p99": 1.47957,
+     "p99.9": 2.08153
+    },
+    "ple_tok_image(pad)": {
+     "min": -11.70524,
+     "max": 13.42216,
+     "rms": 0.97913,
+     "p0.1": -6.65285,
+     "p1": -2.28423,
+     "p50": 0.0,
+     "p99": 2.2622,
+     "p99.9": 7.89199
+    },
+    "ple_all_text": {
+     "min": -16.69013,
+     "max": 22.72383,
+     "rms": 0.95785,
+     "p0.1": -7.83756,
+     "p1": -2.07035,
+     "p50": -0.00089,
+     "p99": 1.94474,
+     "p99.9": 6.31073
+    },
+    "ple_all_image": {
+     "min": -9.73284,
+     "max": 14.22942,
+     "rms": 0.74566,
+     "p0.1": -4.82926,
+     "p1": -1.78814,
+     "p50": -0.00026,
+     "p99": 1.77635,
+     "p99.9": 5.31378
+    },
+    "outside_rate": {
+     "inputs_embeds_text": 0.0,
+     "inputs_embeds_image": 9e-06,
+     "prescaled_image": 9e-06,
+     "ple_tok_image(pad)": 0.000112,
+     "ple_all_text": 1.5e-05,
+     "ple_all_image": 0.0
+    }
+   },
+   "clip_effect": {
+    "prompt_logits_vs_noclip": {
+     "rel_l2_max": 0.33966249227523804,
+     "rel_l2_mean": 0.12503106892108917,
+     "rel_l2_last": 0.12694396078586578,
+     "top1_agree": 0.8971962332725525,
+     "top1_last_same": false,
+     "max_abs": 10.063069343566895
+    },
+    "answer_noclip": "点検の日時は**10月15日（水）14:00～**です。",
+    "answer_clip": "定期点検の日時は**10月15日（水）14:00～**です。"
+   },
+   "srq": true
+  },
+  {
+   "id": "wild_10",
+   "T": 114,
+   "n_image_tokens": 70,
+   "sec": 40.2,
+   "A_vs_B": {
+    "rel_l2_max": 0.0,
+    "rel_l2_mean": 0.0,
+    "rel_l2_last": 0.0,
+    "top1_agree": 1.0,
+    "top1_last_same": true,
+    "max_abs": 0.0
+   },
+   "B_vs_C": {
+    "rel_l2_max": 0.7623221278190613,
+    "rel_l2_mean": 0.1398453265428543,
+    "rel_l2_last": 0.06586834788322449,
+    "top1_agree": 0.8070175647735596,
+    "top1_last_same": true,
+    "max_abs": 9.7703857421875
+   },
+   "A_vs_C": {
+    "rel_l2_max": 0.7623221278190613,
+    "rel_l2_mean": 0.1398453265428543,
+    "rel_l2_last": 0.06586834788322449,
+    "top1_agree": 0.8070175647735596,
+    "top1_last_same": true,
+    "max_abs": 9.7703857421875
+   },
+   "values": {
+    "inputs_embeds_text": {
+     "min": -2.60091,
+     "max": 1.30046,
+     "rms": 0.96648,
+     "p0.1": -2.52656,
+     "p1": -2.28431,
+     "p50": 0.0,
+     "p99": 1.26328,
+     "p99.9": 1.30046
+    },
+    "inputs_embeds_image": {
+     "min": -3.69888,
+     "max": 3.37691,
+     "rms": 0.52762,
+     "p0.1": -1.95601,
+     "p1": -1.26857,
+     "p50": -0.00728,
+     "p99": 1.27599,
+     "p99.9": 1.90749
+    },
+    "ple_tok_image(pad)": {
+     "min": -11.70524,
+     "max": 13.42216,
+     "rms": 0.97913,
+     "p0.1": -6.65285,
+     "p1": -2.28423,
+     "p50": 0.0,
+     "p99": 2.2622,
+     "p99.9": 7.89199
+    },
+    "ple_all_text": {
+     "min": -16.69013,
+     "max": 22.72383,
+     "rms": 0.95928,
+     "p0.1": -8.03104,
+     "p1": -2.03322,
+     "p50": -0.00263,
+     "p99": 1.94493,
+     "p99.9": 6.54049
+    },
+    "ple_all_image": {
+     "min": -8.12981,
+     "max": 12.75705,
+     "rms": 0.72647,
+     "p0.1": -4.61601,
+     "p1": -1.74685,
+     "p50": -7e-05,
+     "p99": 1.74217,
+     "p99.9": 5.47993
+    },
+    "outside_rate": {
+     "inputs_embeds_text": 0.0,
+     "inputs_embeds_image": 0.0,
+     "prescaled_image": 0.0,
+     "ple_tok_image(pad)": 0.000112,
+     "ple_all_text": 1.3e-05,
+     "ple_all_image": 0.0
+    }
+   },
+   "clip_effect": {
+    "prompt_logits_vs_noclip": {
+     "rel_l2_max": 0.3993627429008484,
+     "rel_l2_mean": 0.1105642020702362,
+     "rel_l2_last": 0.07048356533050537,
+     "top1_agree": 0.8421052694320679,
+     "top1_last_same": true,
+     "max_abs": 10.059732437133789
+    },
+    "answer_noclip": "画像からは、道路の制限速度を特定することはできません。道路標識や交通規制などの情報が見当たらないためです。",
+    "answer_clip": "画像から道路の制限速度を特定することはできません。道路標識や道路の表示がないためです。"
+   },
+   "srq": true
+  },
+  {
+   "id": "vg_00",
+   "T": 106,
+   "n_image_tokens": 70,
+   "sec": 38.9,
+   "A_vs_B": {
+    "rel_l2_max": 0.0,
+    "rel_l2_mean": 0.0,
+    "rel_l2_last": 0.0,
+    "top1_agree": 1.0,
+    "top1_last_same": true,
+    "max_abs": 0.0
+   },
+   "B_vs_C": {
+    "rel_l2_max": 0.7623221278190613,
+    "rel_l2_mean": 0.14751587808132172,
+    "rel_l2_last": 0.10697835683822632,
+    "top1_agree": 0.7735849022865295,
+    "top1_last_same": true,
+    "max_abs": 10.786091804504395
+   },
+   "A_vs_C": {
+    "rel_l2_max": 0.7623221278190613,
+    "rel_l2_mean": 0.14751587808132172,
+    "rel_l2_last": 0.10697835683822632,
+    "top1_agree": 0.7735849022865295,
+    "top1_last_same": true,
+    "max_abs": 10.786091804504395
+   },
+   "values": {
+    "inputs_embeds_text": {
+     "min": -2.60091,
+     "max": 1.30046,
+     "rms": 0.96894,
+     "p0.1": -2.52656,
+     "p1": -2.32087,
+     "p50": 0.0,
+     "p99": 1.26328,
+     "p99.9": 1.30046
+    },
+    "inputs_embeds_image": {
+     "min": -3.04218,
+     "max": 3.1289,
+     "rms": 0.50912,
+     "p0.1": -1.95251,
+     "p1": -1.24844,
+     "p50": -0.01285,
+     "p99": 1.24507,
+     "p99.9": 1.93491
+    },
+    "ple_tok_image(pad)": {
+     "min": -11.70524,
+     "max": 13.42216,
+     "rms": 0.97913,
+     "p0.1": -6.65285,
+     "p1": -2.28423,
+     "p50": 0.0,
+     "p99": 2.2622,
+     "p99.9": 7.89199
+    },
+    "ple_all_text": {
+     "min": -16.69013,
+     "max": 22.72383,
+     "rms": 0.96465,
+     "p0.1": -7.86378,
+     "p1": -2.07357,
+     "p50": 0.00021,
+     "p99": 1.97976,
+     "p99.9": 6.56194
+    },
+    "ple_all_image": {
+     "min": -8.75521,
+     "max": 14.57313,
+     "rms": 0.72151,
+     "p0.1": -4.58391,
+     "p1": -1.73922,
+     "p50": 0.0001,
+     "p99": 1.72377,
+     "p99.9": 5.33926
+    },
+    "outside_rate": {
+     "inputs_embeds_text": 0.0,
+     "inputs_embeds_image": 0.0,
+     "prescaled_image": 0.0,
+     "ple_tok_image(pad)": 0.000112,
+     "ple_all_text": 1.6e-05,
+     "ple_all_image": 0.0
+    }
+   },
+   "clip_effect": {
+    "prompt_logits_vs_noclip": {
+     "rel_l2_max": 0.2612481415271759,
+     "rel_l2_mean": 0.10444115847349167,
+     "rel_l2_last": 0.08739659935235977,
+     "top1_agree": 0.8207547068595886,
+     "top1_last_same": false,
+     "max_abs": 9.323081970214844
+    },
+    "answer_noclip": "画像だけでは、その場所を特定することはできません。\n\n画像に写っているのは、**白いボート（または船）**のようです。\n\nもし、この画像が特定のウェブサイトや文脈から提供されたものであれば、",
+    "answer_clip": "提供された画像だけでは、具体的な場所を特定することはできません。\n\n画像には、**白いボード（おそらくサーフボードやその他の板）**が写っていますが、背景が非常にシンプルで、特定のランドマークや環境を示す情報"
+   },
+   "srq": true
+  },
+  {
+   "id": "car_02a",
+   "T": 117,
+   "n_image_tokens": 70,
+   "sec": 41.1,
+   "A_vs_B": {
+    "rel_l2_max": 0.0,
+    "rel_l2_mean": 0.0,
+    "rel_l2_last": 0.0,
+    "top1_agree": 1.0,
+    "top1_last_same": true,
+    "max_abs": 0.0
+   },
+   "B_vs_C": {
+    "rel_l2_max": 2.5451012334087864e-05,
+    "rel_l2_mean": 1.4302353292805492e-06,
+    "rel_l2_last": 1.0642164625096484e-06,
+    "top1_agree": 1.0,
+    "top1_last_same": true,
+    "max_abs": 0.0011513233184814453
+   },
+   "A_vs_C": {
+    "rel_l2_max": 2.5451012334087864e-05,
+    "rel_l2_mean": 1.4302353292805492e-06,
+    "rel_l2_last": 1.0642164625096484e-06,
+    "top1_agree": 1.0,
+    "top1_last_same": true,
+    "max_abs": 0.0011513233184814453
+   },
+   "srq": false
+  },
+  {
+   "id": "syn_notice_La",
+   "T": 107,
+   "n_image_tokens": 70,
+   "sec": 38.3,
+   "A_vs_B": {
+    "rel_l2_max": 0.0,
+    "rel_l2_mean": 0.0,
+    "rel_l2_last": 0.0,
+    "top1_agree": 0.9999999403953552,
+    "top1_last_same": true,
+    "max_abs": 0.0
+   },
+   "B_vs_C": {
+    "rel_l2_max": 6.767459126422182e-06,
+    "rel_l2_mean": 1.3134657592672738e-06,
+    "rel_l2_last": 1.5702328255429165e-06,
+    "top1_agree": 0.9999999403953552,
+    "top1_last_same": true,
+    "max_abs": 0.00012493133544921875
+   },
+   "A_vs_C": {
+    "rel_l2_max": 6.767459126422182e-06,
+    "rel_l2_mean": 1.3134657592672738e-06,
+    "rel_l2_last": 1.5702328255429165e-06,
+    "top1_agree": 0.9999999403953552,
+    "top1_last_same": true,
+    "max_abs": 0.00012493133544921875
+   },
+   "srq": false
+  },
+  {
+   "id": "wild_10",
+   "T": 114,
+   "n_image_tokens": 70,
+   "sec": 40.5,
+   "A_vs_B": {
+    "rel_l2_max": 0.0,
+    "rel_l2_mean": 0.0,
+    "rel_l2_last": 0.0,
+    "top1_agree": 1.0,
+    "top1_last_same": true,
+    "max_abs": 0.0
+   },
+   "B_vs_C": {
+    "rel_l2_max": 3.1276349545805715e-06,
+    "rel_l2_mean": 1.2172585002190317e-06,
+    "rel_l2_last": 1.4903677083566436e-06,
+    "top1_agree": 1.0,
+    "top1_last_same": true,
+    "max_abs": 6.818771362304688e-05
+   },
+   "A_vs_C": {
+    "rel_l2_max": 3.1276349545805715e-06,
+    "rel_l2_mean": 1.2172585002190317e-06,
+    "rel_l2_last": 1.4903677083566436e-06,
+    "top1_agree": 1.0,
+    "top1_last_same": true,
+    "max_abs": 6.818771362304688e-05
+   },
+   "srq": false
+  },
+  {
+   "id": "vg_00",
+   "T": 106,
+   "n_image_tokens": 70,
+   "sec": 38.0,
+   "A_vs_B": {
+    "rel_l2_max": 0.0,
+    "rel_l2_mean": 0.0,
+    "rel_l2_last": 0.0,
+    "top1_agree": 1.0,
+    "top1_last_same": true,
+    "max_abs": 0.0
+   },
+   "B_vs_C": {
+    "rel_l2_max": 2.7001290163752856e-06,
+    "rel_l2_mean": 1.1686399830068694e-06,
+    "rel_l2_last": 1.2815191894333111e-06,
+    "top1_agree": 1.0,
+    "top1_last_same": true,
+    "max_abs": 6.723403930664062e-05
+   },
+   "A_vs_C": {
+    "rel_l2_max": 2.7001290163752856e-06,
+    "rel_l2_mean": 1.1686399830068694e-06,
+    "rel_l2_last": 1.2815191894333111e-06,
+    "top1_agree": 1.0,
+    "top1_last_same": true,
+    "max_abs": 6.723403930664062e-05
+   },
+   "srq": false
+  }
+ ]
+}

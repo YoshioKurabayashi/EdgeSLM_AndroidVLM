@@ -1,0 +1,54 @@
+{
+ "tag": "b70_21x30",
+ "path": "D:\\AI\\source\\n_chap5\\EdgeSLM_AndroidVLM\\work\\ops\\vit_b70_21x30\\vit_b70_21x30.onnx",
+ "nodes": 1600,
+ "size_mib": 586.8,
+ "ops": {
+  "Sub": 1,
+  "Mul": 403,
+  "MatMul": 146,
+  "Add": 209,
+  "Pow": 113,
+  "ReduceMean": 115,
+  "Sqrt": 113,
+  "Reciprocal": 113,
+  "Reshape": 67,
+  "Slice": 128,
+  "Neg": 64,
+  "Concat": 32,
+  "Transpose": 64,
+  "Softmax": 16,
+  "Tanh": 16
+ },
+ "unexpected_ops": [],
+ "risky_ops": {},
+ "inputs": [
+  [
+   "pixel_values",
+   [
+    1,
+    630,
+    768
+   ]
+  ]
+ ],
+ "outputs": [
+  [
+   "image_embeds",
+   [
+    1,
+    70,
+    1536
+   ]
+  ]
+ ],
+ "first_consumer_of_input": [
+  "Sub"
+ ],
+ "matmul_weight": 114,
+ "matmul_actact": 32,
+ "n_calib": 64,
+ "problems": [],
+ "pass": true,
+ "sec": 28.4
+}

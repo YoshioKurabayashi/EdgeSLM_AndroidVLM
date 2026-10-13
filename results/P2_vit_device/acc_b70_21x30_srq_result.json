@@ -1,0 +1,321 @@
+{
+ "completed": 16,
+ "describe": {
+  "backend": "QNN HTP - EPContext - all nodes",
+  "ctx_retries": 0,
+  "htp_shared_io": false,
+  "inputs": [
+   {
+    "name": "pixel_values",
+    "shape": [
+     1,
+     630,
+     768
+    ],
+    "static": true,
+    "type": "float32"
+   }
+  ],
+  "model": "/storage/emulated/0/Android/data/org.edgeslm.vlm/files/models/vit/vit_b70_21x30_srq_epctx.onnx",
+  "ok": true,
+  "outputs": [
+   {
+    "name": "image_embeds",
+    "shape": [
+     1,
+     70,
+     1536
+    ],
+    "static": true,
+    "type": "float32"
+   }
+  ],
+  "shared_bytes": 0,
+  "strict_no_cpu_fallback": true
+ },
+ "job_id": "vit_acc_b70_21x30_srq",
+ "ok": true,
+ "power_profile": "default(unsigned_pd)",
+ "records": [
+  {
+   "id": "vg_00",
+   "ort_run_ms": 268.99739599227905,
+   "outputs": [
+    {
+     "bytes": 430080,
+     "name": "image_embeds",
+     "path": "out/vit_acc_b70_21x30_srq/vit_acc_b70_21x30_srq_vg_00_image_embeds.bin",
+     "shape": [
+      1,
+      70,
+      1536
+     ],
+     "type": "float32"
+    }
+   ]
+  },
+  {
+   "id": "vg_13",
+   "ort_run_ms": 268.7727599143982,
+   "outputs": [
+    {
+     "bytes": 430080,
+     "name": "image_embeds",
+     "path": "out/vit_acc_b70_21x30_srq/vit_acc_b70_21x30_srq_vg_13_image_embeds.bin",
+     "shape": [
+      1,
+      70,
+      1536
+     ],
+     "type": "float32"
+    }
+   ]
+  },
+  {
+   "id": "vg_26",
+   "ort_run_ms": 268.8086462020874,
+   "outputs": [
+    {
+     "bytes": 430080,
+     "name": "image_embeds",
+     "path": "out/vit_acc_b70_21x30_srq/vit_acc_b70_21x30_srq_vg_26_image_embeds.bin",
+     "shape": [
+      1,
+      70,
+      1536
+     ],
+     "type": "float32"
+    }
+   ]
+  },
+  {
+   "id": "vg_39",
+   "ort_run_ms": 268.9746868610382,
+   "outputs": [
+    {
+     "bytes": 430080,
+     "name": "image_embeds",
+     "path": "out/vit_acc_b70_21x30_srq/vit_acc_b70_21x30_srq_vg_39_image_embeds.bin",
+     "shape": [
+      1,
+      70,
+      1536
+     ],
+     "type": "float32"
+    }
+   ]
+  },
+  {
+   "id": "wild_00",
+   "ort_run_ms": 280.52838492393494,
+   "outputs": [
+    {
+     "bytes": 430080,
+     "name": "image_embeds",
+     "path": "out/vit_acc_b70_21x30_srq/vit_acc_b70_21x30_srq_wild_00_image_embeds.bin",
+     "shape": [
+      1,
+      70,
+      1536
+     ],
+     "type": "float32"
+    }
+   ]
+  },
+  {
+   "id": "wild_18",
+   "ort_run_ms": 309.2659890651703,
+   "outputs": [
+    {
+     "bytes": 430080,
+     "name": "image_embeds",
+     "path": "out/vit_acc_b70_21x30_srq/vit_acc_b70_21x30_srq_wild_18_image_embeds.bin",
+     "shape": [
+      1,
+      70,
+      1536
+     ],
+     "type": "float32"
+    }
+   ]
+  },
+  {
+   "id": "wild_33",
+   "ort_run_ms": 310.32249999046326,
+   "outputs": [
+    {
+     "bytes": 430080,
+     "name": "image_embeds",
+     "path": "out/vit_acc_b70_21x30_srq/vit_acc_b70_21x30_srq_wild_33_image_embeds.bin",
+     "shape": [
+      1,
+      70,
+      1536
+     ],
+     "type": "float32"
+    }
+   ]
+  },
+  {
+   "id": "wild_49",
+   "ort_run_ms": 309.3626039028168,
+   "outputs": [
+    {
+     "bytes": 430080,
+     "name": "image_embeds",
+     "path": "out/vit_acc_b70_21x30_srq/vit_acc_b70_21x30_srq_wild_49_image_embeds.bin",
+     "shape": [
+      1,
+      70,
+      1536
+     ],
+     "type": "float32"
+    }
+   ]
+  },
+  {
+   "id": "car_01a",
+   "ort_run_ms": 310.37906193733215,
+   "outputs": [
+    {
+     "bytes": 430080,
+     "name": "image_embeds",
+     "path": "out/vit_acc_b70_21x30_srq/vit_acc_b70_21x30_srq_car_01a_image_embeds.bin",
+     "shape": [
+      1,
+      70,
+      1536
+     ],
+     "type": "float32"
+    }
+   ]
+  },
+  {
+   "id": "car_05a",
+   "ort_run_ms": 311.08348989486694,
+   "outputs": [
+    {
+     "bytes": 430080,
+     "name": "image_embeds",
+     "path": "out/vit_acc_b70_21x30_srq/vit_acc_b70_21x30_srq_car_05a_image_embeds.bin",
+     "shape": [
+      1,
+      70,
+      1536
+     ],
+     "type": "float32"
+    }
+   ]
+  },
+  {
+   "id": "car_09a",
+   "ort_run_ms": 310.3619270324707,
+   "outputs": [
+    {
+     "bytes": 430080,
+     "name": "image_embeds",
+     "path": "out/vit_acc_b70_21x30_srq/vit_acc_b70_21x30_srq_car_09a_image_embeds.bin",
+     "shape": [
+      1,
+      70,
+      1536
+     ],
+     "type": "float32"
+    }
+   ]
+  },
+  {
+   "id": "car_13a",
+   "ort_run_ms": 309.45171904563904,
+   "outputs": [
+    {
+     "bytes": 430080,
+     "name": "image_embeds",
+     "path": "out/vit_acc_b70_21x30_srq/vit_acc_b70_21x30_srq_car_13a_image_embeds.bin",
+     "shape": [
+      1,
+      70,
+      1536
+     ],
+     "type": "float32"
+    }
+   ]
+  },
+  {
+   "id": "syn_nav_L",
+   "ort_run_ms": 310.21494793891907,
+   "outputs": [
+    {
+     "bytes": 430080,
+     "name": "image_embeds",
+     "path": "out/vit_acc_b70_21x30_srq/vit_acc_b70_21x30_srq_syn_nav_L_image_embeds.bin",
+     "shape": [
+      1,
+      70,
+      1536
+     ],
+     "type": "float32"
+    }
+   ]
+  },
+  {
+   "id": "syn_sign",
+   "ort_run_ms": 310.48166608810425,
+   "outputs": [
+    {
+     "bytes": 430080,
+     "name": "image_embeds",
+     "path": "out/vit_acc_b70_21x30_srq/vit_acc_b70_21x30_srq_syn_sign_image_embeds.bin",
+     "shape": [
+      1,
+      70,
+      1536
+     ],
+     "type": "float32"
+    }
+   ]
+  },
+  {
+   "id": "syn_aircon",
+   "ort_run_ms": 310.4613537788391,
+   "outputs": [
+    {
+     "bytes": 430080,
+     "name": "image_embeds",
+     "path": "out/vit_acc_b70_21x30_srq/vit_acc_b70_21x30_srq_syn_aircon_image_embeds.bin",
+     "shape": [
+      1,
+      70,
+      1536
+     ],
+     "type": "float32"
+    }
+   ]
+  },
+  {
+   "id": "syn_paragraph",
+   "ort_run_ms": 312.32552003860474,
+   "outputs": [
+    {
+     "bytes": 430080,
+     "name": "image_embeds",
+     "path": "out/vit_acc_b70_21x30_srq/vit_acc_b70_21x30_srq_syn_paragraph_image_embeds.bin",
+     "shape": [
+      1,
+      70,
+      1536
+     ],
+     "type": "float32"
+    }
+   ]
+  }
+ ],
+ "task": "infer",
+ "versions": {
+  "onnxruntime": "1.27.0",
+  "ort_api_version": 27,
+  "qnn_runtime": "see manifest (bundled QAIRT set)"
+ },
+ "_kind": "result",
+ "_wall_s": 6.6
+}

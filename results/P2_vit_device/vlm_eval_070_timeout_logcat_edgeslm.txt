@@ -1,0 +1,9 @@
+--------- beginning of main
+09-29 18:55:56.162  5330  5330 I EdgeSLMRunner: externalFilesDir=/storage/emulated/0/Android/data/org.edgeslm.vlm/files
+09-29 18:55:56.164  5330  5330 I EdgeSLMRunner: subdirs ready: models,jobs,inputs,out,tokenizer
+09-29 18:55:56.164  5330  5330 I EdgeSLMRunner: starting RunnerService with job=jobs/vlm_eval_070.json
+09-29 18:55:56.262  5330  7959 I EdgeSLMRunner: externalFilesDir=/storage/emulated/0/Android/data/org.edgeslm.vlm/files
+09-29 18:55:56.266  5330  7959 I EdgeSLMRunner: versions={"onnxruntime":"1.27.0","ort_api_version":27,"qnn_runtime":"see manifest (bundled QAIRT set)"}
+09-29 18:55:56.533  5330  7959 I EdgeSLMRunner: job=vlm_eval_070.json nativeLibDir=/data/app/~~VMh15D7YPfk-GSdEVtt67Q==/org.edgeslm.vlm-CqZIxvFSlT57csdllyvN6Q==/lib/arm64
+09-29 18:55:56.537  5330  7959 I EdgeSLMRunner: runtime.set_fastrpc_paths=false: leaving ADSP_LIBRARY_PATH to ORT
+09-29 18:55:56.539  5330  7959 I EdgeSLMRunner: model=/storage/emulated/0/Android/data/org.edgeslm.vlm/files/models/ops/g4full_L256_epctx.onnx

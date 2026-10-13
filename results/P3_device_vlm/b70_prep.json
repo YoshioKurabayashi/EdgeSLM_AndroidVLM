@@ -1,0 +1,1195 @@
+{
+ "n": 108,
+ "n_exact": 108,
+ "pass": true,
+ "rows": [
+  {
+   "image": "images/synth/syn_nav_L.png",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 8.258021116256714,
+   "in": [
+    960,
+    672
+   ]
+  },
+  {
+   "image": "images/synth/syn_nav_S.png",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 7.948750019073486,
+   "in": [
+    960,
+    672
+   ]
+  },
+  {
+   "image": "images/synth/syn_warn_L.png",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 8.294062852859497,
+   "in": [
+    960,
+    672
+   ]
+  },
+  {
+   "image": "images/synth/syn_warn_S.png",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 8.036354064941406,
+   "in": [
+    960,
+    672
+   ]
+  },
+  {
+   "image": "images/synth/syn_sign.png",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 7.984479904174805,
+   "in": [
+    960,
+    672
+   ]
+  },
+  {
+   "image": "images/synth/syn_parking.png",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 7.968957901000977,
+   "in": [
+    960,
+    672
+   ]
+  },
+  {
+   "image": "images/synth/syn_notice_L.png",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 7.9657299518585205,
+   "in": [
+    960,
+    672
+   ]
+  },
+  {
+   "image": "images/synth/syn_notice_S.png",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 7.947448015213013,
+   "in": [
+    960,
+    672
+   ]
+  },
+  {
+   "image": "images/synth/syn_aircon.png",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 7.984219074249268,
+   "in": [
+    960,
+    672
+   ]
+  },
+  {
+   "image": "images/synth/syn_train.png",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 7.9635419845581055,
+   "in": [
+    960,
+    672
+   ]
+  },
+  {
+   "image": "images/synth/syn_timetable.png",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 7.95828104019165,
+   "in": [
+    960,
+    672
+   ]
+  },
+  {
+   "image": "images/synth/syn_vertical.png",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 7.957292079925537,
+   "in": [
+    960,
+    672
+   ]
+  },
+  {
+   "image": "images/synth/syn_paragraph.png",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 7.95828104019165,
+   "in": [
+    960,
+    672
+   ]
+  },
+  {
+   "image": "images/car/car_01.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 14.857083082199097,
+   "in": [
+    1600,
+    1067
+   ]
+  },
+  {
+   "image": "images/car/car_02.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 14.537448167800903,
+   "in": [
+    1600,
+    1067
+   ]
+  },
+  {
+   "image": "images/car/car_03.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 28.321563005447388,
+   "in": [
+    1600,
+    2400
+   ]
+  },
+  {
+   "image": "images/car/car_04.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 14.534792184829712,
+   "in": [
+    1600,
+    1067
+   ]
+  },
+  {
+   "image": "images/car/car_05.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 14.565208911895752,
+   "in": [
+    1600,
+    1067
+   ]
+  },
+  {
+   "image": "images/car/car_06.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 14.550312995910645,
+   "in": [
+    1600,
+    1067
+   ]
+  },
+  {
+   "image": "images/car/car_07.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 12.630156993865967,
+   "in": [
+    1600,
+    900
+   ]
+  },
+  {
+   "image": "images/car/car_08.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 27.87234401702881,
+   "in": [
+    1600,
+    2400
+   ]
+  },
+  {
+   "image": "images/car/car_09.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 14.449636220932007,
+   "in": [
+    1600,
+    1067
+   ]
+  },
+  {
+   "image": "images/car/car_10.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 14.552865028381348,
+   "in": [
+    1600,
+    1067
+   ]
+  },
+  {
+   "image": "images/car/car_11.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 12.25822901725769,
+   "in": [
+    1600,
+    900
+   ]
+  },
+  {
+   "image": "images/car/car_12.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 26.31749987602234,
+   "in": [
+    1600,
+    2193
+   ]
+  },
+  {
+   "image": "images/car/car_13.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 27.82104206085205,
+   "in": [
+    1600,
+    2400
+   ]
+  },
+  {
+   "image": "images/vg/vg_00_2338292.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.043280839920044,
+   "in": [
+    375,
+    500
+   ]
+  },
+  {
+   "image": "images/vg/vg_01_2351612.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.320884943008423,
+   "in": [
+    500,
+    374
+   ]
+  },
+  {
+   "image": "images/vg/vg_02_2351367.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.3283329010009766,
+   "in": [
+    500,
+    375
+   ]
+  },
+  {
+   "image": "images/vg/vg_03_2357482.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.1485941410064697,
+   "in": [
+    397,
+    500
+   ]
+  },
+  {
+   "image": "images/vg/vg_04_2374342.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.3310937881469727,
+   "in": [
+    500,
+    332
+   ]
+  },
+  {
+   "image": "images/vg/vg_05_2384661.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 1.9743750095367432,
+   "in": [
+    375,
+    500
+   ]
+  },
+  {
+   "image": "images/vg/vg_06_2327882.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.635572910308838,
+   "in": [
+    500,
+    464
+   ]
+  },
+  {
+   "image": "images/vg/vg_07_2410754.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.393125057220459,
+   "in": [
+    500,
+    375
+   ]
+  },
+  {
+   "image": "images/vg/vg_08_2319692.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.3597400188446045,
+   "in": [
+    500,
+    375
+   ]
+  },
+  {
+   "image": "images/vg/vg_09_2346800.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.3856770992279053,
+   "in": [
+    500,
+    333
+   ]
+  },
+  {
+   "image": "images/vg/vg_10_4674.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 1.768333911895752,
+   "in": [
+    334,
+    500
+   ]
+  },
+  {
+   "image": "images/vg/vg_11_3394.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 5.579115152359009,
+   "in": [
+    800,
+    600
+   ]
+  },
+  {
+   "image": "images/vg/vg_12_2331667.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 1.812239170074463,
+   "in": [
+    333,
+    500
+   ]
+  },
+  {
+   "image": "images/vg/vg_13_2975.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 5.414270877838135,
+   "in": [
+    800,
+    600
+   ]
+  },
+  {
+   "image": "images/vg/vg_14_2400185.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.338958978652954,
+   "in": [
+    500,
+    375
+   ]
+  },
+  {
+   "image": "images/vg/vg_15_2342983.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.3673441410064697,
+   "in": [
+    500,
+    375
+   ]
+  },
+  {
+   "image": "images/vg/vg_16_2360931.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.2164580821990967,
+   "in": [
+    500,
+    334
+   ]
+  },
+  {
+   "image": "images/vg/vg_17_2339561.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.213125228881836,
+   "in": [
+    500,
+    333
+   ]
+  },
+  {
+   "image": "images/vg/vg_18_2397938.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.329582929611206,
+   "in": [
+    500,
+    375
+   ]
+  },
+  {
+   "image": "images/vg/vg_19_2355957.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.0261459350585938,
+   "in": [
+    386,
+    500
+   ]
+  },
+  {
+   "image": "images/vg/vg_20_2334093.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.3197391033172607,
+   "in": [
+    500,
+    375
+   ]
+  },
+  {
+   "image": "images/vg/vg_21_2341032.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.3396871089935303,
+   "in": [
+    500,
+    363
+   ]
+  },
+  {
+   "image": "images/vg/vg_22_2395049.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 1.3329689502716064,
+   "in": [
+    270,
+    360
+   ]
+  },
+  {
+   "image": "images/vg/vg_23_2326892.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.3193750381469727,
+   "in": [
+    500,
+    375
+   ]
+  },
+  {
+   "image": "images/vg/vg_24_2318873.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.2133328914642334,
+   "in": [
+    500,
+    333
+   ]
+  },
+  {
+   "image": "images/vg/vg_25_2348338.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 1.8109369277954102,
+   "in": [
+    333,
+    500
+   ]
+  },
+  {
+   "image": "images/vg/vg_26_2367900.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.3474478721618652,
+   "in": [
+    500,
+    357
+   ]
+  },
+  {
+   "image": "images/vg/vg_27_2357806.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.213124990463257,
+   "in": [
+    500,
+    332
+   ]
+  },
+  {
+   "image": "images/vg/vg_28_2413955.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.3628640174865723,
+   "in": [
+    500,
+    375
+   ]
+  },
+  {
+   "image": "images/vg/vg_29_2357782.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.2366669178009033,
+   "in": [
+    500,
+    333
+   ]
+  },
+  {
+   "image": "images/vg/vg_30_2412181.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.269166946411133,
+   "in": [
+    500,
+    333
+   ]
+  },
+  {
+   "image": "images/vg/vg_31_2355261.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.3480730056762695,
+   "in": [
+    500,
+    375
+   ]
+  },
+  {
+   "image": "images/vg/vg_32_2412347.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.2668750286102295,
+   "in": [
+    500,
+    333
+   ]
+  },
+  {
+   "image": "images/vg/vg_33_2403407.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.223228931427002,
+   "in": [
+    500,
+    333
+   ]
+  },
+  {
+   "image": "images/vg/vg_34_498246.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 6.392343997955322,
+   "in": [
+    683,
+    1024
+   ]
+  },
+  {
+   "image": "images/vg/vg_35_2344524.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 1.9715628623962402,
+   "in": [
+    375,
+    500
+   ]
+  },
+  {
+   "image": "images/vg/vg_36_2321220.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.3091671466827393,
+   "in": [
+    500,
+    375
+   ]
+  },
+  {
+   "image": "images/vg/vg_37_1592408.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 8.992759943008423,
+   "in": [
+    1024,
+    898
+   ]
+  },
+  {
+   "image": "images/vg/vg_38_2347725.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.7166671752929688,
+   "in": [
+    500,
+    500
+   ]
+  },
+  {
+   "image": "images/vg/vg_39_2411948.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.318333148956299,
+   "in": [
+    500,
+    375
+   ]
+  },
+  {
+   "image": "images/wild/wild_00.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 5.92463493347168,
+   "in": [
+    870,
+    580
+   ]
+  },
+  {
+   "image": "images/wild/wild_01.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 5.761510133743286,
+   "in": [
+    870,
+    580
+   ]
+  },
+  {
+   "image": "images/wild/wild_02.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 7.337552070617676,
+   "in": [
+    836,
+    906
+   ]
+  },
+  {
+   "image": "images/wild/wild_03.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 12.409167051315308,
+   "in": [
+    987,
+    1481
+   ]
+  },
+  {
+   "image": "images/wild/wild_04.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 5.728593826293945,
+   "in": [
+    870,
+    581
+   ]
+  },
+  {
+   "image": "images/wild/wild_05.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 5.729323148727417,
+   "in": [
+    870,
+    580
+   ]
+  },
+  {
+   "image": "images/wild/wild_06.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 12.044739007949829,
+   "in": [
+    976,
+    1509
+   ]
+  },
+  {
+   "image": "images/wild/wild_07.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 5.844635009765625,
+   "in": [
+    874,
+    580
+   ]
+  },
+  {
+   "image": "images/wild/wild_08.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 9.310728788375854,
+   "in": [
+    928,
+    1160
+   ]
+  },
+  {
+   "image": "images/wild/wild_09.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 5.682499885559082,
+   "in": [
+    870,
+    580
+   ]
+  },
+  {
+   "image": "images/wild/wild_10.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 5.680624961853027,
+   "in": [
+    870,
+    580
+   ]
+  },
+  {
+   "image": "images/wild/wild_11.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 12.137655973434448,
+   "in": [
+    987,
+    1481
+   ]
+  },
+  {
+   "image": "images/wild/wild_12.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 5.60328221321106,
+   "in": [
+    867,
+    580
+   ]
+  },
+  {
+   "image": "images/wild/wild_13.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 9.00583291053772,
+   "in": [
+    1074,
+    805
+   ]
+  },
+  {
+   "image": "images/wild/wild_14.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 6.6988019943237305,
+   "in": [
+    1032,
+    581
+   ]
+  },
+  {
+   "image": "images/wild/wild_15.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 12.337552070617676,
+   "in": [
+    927,
+    1648
+   ]
+  },
+  {
+   "image": "images/wild/wild_16.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 5.73953104019165,
+   "in": [
+    870,
+    580
+   ]
+  },
+  {
+   "image": "images/wild/wild_17.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 12.142187118530273,
+   "in": [
+    987,
+    1481
+   ]
+  },
+  {
+   "image": "images/wild/wild_18.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 5.723541021347046,
+   "in": [
+    870,
+    580
+   ]
+  },
+  {
+   "image": "images/wild/wild_19.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 5.8455729484558105,
+   "in": [
+    869,
+    580
+   ]
+  },
+  {
+   "image": "images/wild/wild_20.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 9.057447910308838,
+   "in": [
+    1077,
+    805
+   ]
+  },
+  {
+   "image": "images/wild/wild_21.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 2.189115047454834,
+   "in": [
+    400,
+    500
+   ]
+  },
+  {
+   "image": "images/wild/wild_22.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 8.815780878067017,
+   "in": [
+    1074,
+    806
+   ]
+  },
+  {
+   "image": "images/wild/wild_23.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 5.741979122161865,
+   "in": [
+    870,
+    580
+   ]
+  },
+  {
+   "image": "images/wild/wild_24.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 12.169792175292969,
+   "in": [
+    987,
+    1481
+   ]
+  },
+  {
+   "image": "images/wild/wild_25.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 5.683801889419556,
+   "in": [
+    842,
+    580
+   ]
+  },
+  {
+   "image": "images/wild/wild_26.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 8.633594036102295,
+   "in": [
+    870,
+    1160
+   ]
+  },
+  {
+   "image": "images/wild/wild_27.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 5.706561803817749,
+   "in": [
+    870,
+    580
+   ]
+  },
+  {
+   "image": "images/wild/wild_28.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 6.472969055175781,
+   "in": [
+    928,
+    580
+   ]
+  },
+  {
+   "image": "images/wild/wild_29.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 6.5476038455963135,
+   "in": [
+    928,
+    580
+   ]
+  },
+  {
+   "image": "images/wild/wild_30.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 12.139895915985107,
+   "in": [
+    987,
+    1480
+   ]
+  },
+  {
+   "image": "images/wild/wild_31.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 12.340208053588867,
+   "in": [
+    986,
+    1482
+   ]
+  },
+  {
+   "image": "images/wild/wild_32.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 8.778698205947876,
+   "in": [
+    1074,
+    806
+   ]
+  },
+  {
+   "image": "images/wild/wild_33.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 8.749948024749756,
+   "in": [
+    1074,
+    806
+   ]
+  },
+  {
+   "image": "images/wild/wild_34.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 12.17062497138977,
+   "in": [
+    987,
+    1481
+   ]
+  },
+  {
+   "image": "images/wild/wild_35.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 12.114062070846558,
+   "in": [
+    985,
+    1485
+   ]
+  },
+  {
+   "image": "images/wild/wild_36.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 9.26713490486145,
+   "in": [
+    952,
+    1161
+   ]
+  },
+  {
+   "image": "images/wild/wild_37.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 5.744374990463257,
+   "in": [
+    870,
+    580
+   ]
+  },
+  {
+   "image": "images/wild/wild_38.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 5.8671348094940186,
+   "in": [
+    876,
+    580
+   ]
+  },
+  {
+   "image": "images/wild/wild_39.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 8.50025987625122,
+   "in": [
+    870,
+    1160
+   ]
+  },
+  {
+   "image": "images/wild/wild_40.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 12.097448110580444,
+   "in": [
+    985,
+    1486
+   ]
+  },
+  {
+   "image": "images/wild/wild_41.jpg",
+   "exact": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "resize_ms": 5.73557186126709,
+   "in": [
+    870,
+    580
+   ]
+  }
+ ]
+}

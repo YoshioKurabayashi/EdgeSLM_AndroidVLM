@@ -1,0 +1,80 @@
+{
+ "model": "D:\\AI\\source\\n_chap5\\EdgeSLM_AndroidVLM\\work\\ops\\g4t16_W256\\g4t16_W256_final_qdq.onnx",
+ "rows": [
+  {
+   "i": 0,
+   "row": 15,
+   "pos": 16,
+   "t16_top1": 236924,
+   "hf_top1": 236924,
+   "t16_vs_hf_top1": true,
+   "t16_vs_hf_top5": 4,
+   "t1_top1": 236924,
+   "t16_vs_t1_top1": true,
+   "t16_vs_t1_top5": 3,
+   "t16_vs_t1_rel": 0.24442130327224731,
+   "t1_vs_hf_top1": true
+  },
+  {
+   "i": 41,
+   "row": 15,
+   "pos": 57,
+   "t16_top1": 106,
+   "hf_top1": 106,
+   "t16_vs_hf_top1": true,
+   "t16_vs_hf_top5": 5,
+   "t1_top1": 106,
+   "t16_vs_t1_top1": true,
+   "t16_vs_t1_top5": 4,
+   "t16_vs_t1_rel": 0.17564472556114197,
+   "t1_vs_hf_top1": true
+  },
+  {
+   "i": 112,
+   "row": 15,
+   "pos": 34,
+   "t16_top1": 0,
+   "hf_top1": 236743,
+   "t16_vs_hf_top1": false,
+   "t16_vs_hf_top5": 0,
+   "t1_top1": 0,
+   "t16_vs_t1_top1": true,
+   "t16_vs_t1_top5": 4,
+   "t16_vs_t1_rel": 0.004780867137014866,
+   "t1_vs_hf_top1": false
+  },
+  {
+   "i": 229,
+   "row": 15,
+   "pos": 22,
+   "t16_top1": 76444,
+   "hf_top1": 76444,
+   "t16_vs_hf_top1": true,
+   "t16_vs_hf_top5": 4,
+   "t1_top1": 76444,
+   "t16_vs_t1_top1": true,
+   "t16_vs_t1_top5": 4,
+   "t16_vs_t1_rel": 0.1178712323307991,
+   "t1_vs_hf_top1": true
+  },
+  {
+   "i": 0,
+   "row": 7,
+   "pos": 8,
+   "t16_top1": 9934,
+   "hf_top1": 9934,
+   "t16_vs_hf_top1": true,
+   "t16_vs_hf_top5": 5,
+   "t1_top1": 9934,
+   "t16_vs_t1_top1": true,
+   "t16_vs_t1_top5": 5,
+   "t16_vs_t1_rel": 0.14587870240211487,
+   "t1_vs_hf_top1": true
+  }
+ ],
+ "t16_vs_hf_top1": 0.8,
+ "t16_vs_hf_top5": 3.6,
+ "t16_vs_t1_top1": 1.0,
+ "t16_vs_t1_top5": 4.0,
+ "t1_vs_hf_top1": 0.8
+}

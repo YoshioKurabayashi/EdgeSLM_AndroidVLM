@@ -1,0 +1,11 @@
+{
+ "item": "car_01a",
+ "same_prompt_ids": true,
+ "ui_ids_len": 113,
+ "hf_ids_len": 113,
+ "pix_diff_max_255": 0.0,
+ "pix_diff_mean_255": 0.0,
+ "image_line": "1600x1067 load_ms=49 prep_ms=26 vit_wall_ms=1091 vit_npu_ms=166.0 strict=true out=out/vlm/vlm_vit_1790673304600_0_cam_image_embeds.bin\r",
+ "answer": "運転席から見える左側の画面には、**ナビゲーションシステム**が表示されています。⏎⏎具体的に何が表示されているか（例：地図、ルート、情報など）は、画像が鮮明でないため断定はできませんが、一般的に車載システムでは以下のような情報が表示されます。⏎⏎* **ナビゲーション情報:** 現在地、目的地、ルート案内。⏎* **交通情報:** 渋滞情報、事故情報など。⏎* **車両\r",
+ "stats_line": "first=true image_s=1.17 vit_npu_ms=166.0 first_s=8.43 total_s=14.97 median_ms=68.9 new=96 image_tokens_fed=70 abs_pos=208 cache_len=256 strict_text=true strict_vit=true\r"
+}

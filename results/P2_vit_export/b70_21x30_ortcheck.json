@@ -1,0 +1,12 @@
+{
+ "tag": "b70_21x30",
+ "onnx_vs_own": {
+  "rel_max": 0.00011007669513438665
+ },
+ "onnx_vs_hf_nosrq": {
+  "rel_max": 0.00010845397376023727,
+  "cos_min": 0.9999999999269187
+ },
+ "ort_cpu_sec_median": 0.76,
+ "pass": false
+}
