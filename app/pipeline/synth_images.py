@@ -16,6 +16,12 @@
 - フォントは Noto Sans CJK JP を優先（無ければ Windows の游ゴシック・メイリオ）。**フォントが違うと画像が変わる**ので、
   一度作った画像は作り直さない（`--force` のときだけ作り直す）。どのフォントで作ったかは manifest に残す
 - 文面は架空（実在の案内・店舗・人物は使わない）
+
+## 使う段・入力と出力
+
+- 評価セットの準備（Phase 1 の前。StudyMemo 5.4 節「合成画像で解像度の効き目を切り分ける」）。13 枚・15 問（5 章の表）
+- 入力: `eval_defs.SYNTH_SPECS`（文面・字の大きさ・見た目の型の定義）
+- 出力: `work/eval/images/synth/<id>.png` と `synth_meta.json`（{id: {"path", "font"}}）。fetch_eval_data がこれを評価の一覧に入れる
 """
 from __future__ import annotations
 
@@ -28,6 +34,7 @@ from PIL import Image, ImageDraw, ImageFont
 from app.pipeline import eval_defs as D
 from app.pipeline import vlm_common as C
 
+# 出力の置き場（work/eval/images/synth）
 OUT = C.EVAL_DIR / "images" / "synth"
 
 # フォントの候補（上から順に探す）。.ttc は複数の書体が入っているので index を指定する
@@ -51,6 +58,7 @@ STYLES = {
 }
 
 
+# FONT_CANDIDATES を上から探し、最初に見つかったフォントの (パス, .ttc の中の番号) を返す。無ければ例外で止める。
 def find_font() -> tuple[str, int]:
     for path, idx in FONT_CANDIDATES:
         if Path(path).exists():
@@ -58,6 +66,7 @@ def find_font() -> tuple[str, int]:
     raise FileNotFoundError("日本語フォントが見つからない。FONT_CANDIDATES に追加すること")
 
 
+# 指定の大きさ（ピクセル）でフォントを開く小さな手伝い。
 def _font(path: str, idx: int, size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.truetype(path, size=size, index=idx)
 
@@ -77,6 +86,11 @@ def _wrap(draw: ImageDraw.ImageDraw, text: str, font, max_w: int) -> list[str]:
 
 
 def render(spec: dict, font_path: str, font_idx: int) -> Image.Image:
+    """1 枚の定義（spec）から 960×672 の画像を描いて返す。
+
+    spec の形は 3 通り: "vertical"（縦書き 1 行）・"text_block"（段落を折り返す）・"lines"（[(文, 字の大きさ), …] を中央揃えで縦に並べる）。
+    行の間隔は字の大きさ × 1.15（縦書き）・1.6（段落）・1.35（行ごと）。どれも中央に来るように始めの y を決める。
+    """
     st = STYLES[spec["style"]]
     img = Image.new("RGB", (D.SYNTH_W, D.SYNTH_H), st["bg"])
     dr = ImageDraw.Draw(img)
@@ -118,6 +132,7 @@ def render(spec: dict, font_path: str, font_idx: int) -> Image.Image:
 
 def build(force: bool = False) -> dict:
     """合成画像を作り、{id: {"path", "font"}} を返す。既にあるものは作り直さない。"""
+    # ① 前に作った記録（synth_meta.json）を読む。記録にあり画像もあるものは飛ばす（フォントが変わると画像が変わるため）
     OUT.mkdir(parents=True, exist_ok=True)
     meta_path = OUT / "synth_meta.json"
     meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
@@ -126,16 +141,19 @@ def build(force: bool = False) -> dict:
         p = OUT / f"{spec['id']}.png"
         if p.exists() and not force and spec["id"] in meta:
             continue
+        # ② 作る必要があるときだけフォントを探す（全部そろっていればフォントの無い環境でも通る）
         if font_path is None:
             font_path, font_idx = find_font()
         render(spec, font_path, font_idx).save(p)
         meta[spec["id"]] = {"path": str(p.relative_to(C.EVAL_DIR)).replace("\\", "/"),
                             "font": Path(font_path).name}
         print(f"  作成 {p.name}（{Path(font_path).name}）")
+    # ③ どのフォントで作ったかを含めて記録を書き直す
     meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
     return meta
 
 
+# 全部の合成画像を作る（--force で作り直す）。
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--force", action="store_true")

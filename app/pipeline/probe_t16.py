@@ -12,7 +12,12 @@
 **EdgeSLM_Android の venv（$PY2）で動かす**（onnxruntime・numpy・adb）。端末は USB でつなぎ、VLM 検証アプリ（org.edgeslm.vlm）を
 入れておく。デモ画面が開いていても最初に止める（同じプロセスで 1.5GB のモデルを 2 つ開けないため）。
 
-## ここまでに分かっていること（`diag_t16`、`results/P5_t16/diag_t16.json`）
+> ★2026-10-18 追記（後で分かったこと）: 切り分けの 7 段目（2026-10-03、`results/P5_20261003_t16_accuracy.md` 3 節）で、
+> **基準にしていた PC の CPU の方が画像の行で誤っていた**と分かった（正規化の途中の目盛りは文章だけで決めたもので、
+> 画像の行ではみ出して切れる。NPU はまとめた RmsNorm で正確）。下の「ずれは端末での実行で起きている」は当時の読みで、今は取り消している。
+> 道具そのもの（同じ入力を NPU と CPU に通して比べる）はそのまま使える。StudyMemo 10.7 節。
+
+## ここまでに分かっていること（`diag_t16`、`results/P5_t16/diag_t16.json`。当時）
 
 同じ量子化済みの 16 トークン版を PC の CPU で動かすと、答えの 1 トークン目が HF と 13/16 一致した（端末は 5/16）。
 つまりグラフ（量子化の目盛り）は正しく、**ずれは端末での実行で起きている**。端末での実行には 2 つの部品がある:
@@ -53,6 +58,14 @@ diag_t16 と**同じ入れ方を Python で作り**（diag_t16.Runner16 と同�
 - job の間に OS に止められたら、次の job で開き直す（落ちた job は 30 秒待って 2 回までやり直す）。最後にアプリを止める
 
 結果: `results/P5_t16/probe_t16.json`（1 問ごとに書き足す。途中で止めても同じコマンドで続きから）
+
+## 結果（2026-09-30、StudyMemo 10.7 節の 2 段目・基本設計_Phase5.md）
+
+- NPU で続けた答え（Python の入れ方）は端末の評価（C++ の入れ方）と 1 トークン目が 7/7 一致（文字を読み違えた 2 問は 9 トークン先まで同じ）
+  → **C++ の入れ方は正しい**（この結論は今も有効）
+- 同じ入力を NPU と CPU に通すと、1 位が同じ 23/65 回・logits の差の中央値 62%。K/V の差は文字だけの回で層 0 の 2.3% から層 1 で 23%、
+  画像の行を含む回は層 0 から 40%。past がそのまま戻る層 13・14 の past の部分は 0〜2%（入力の丸めは正常）
+- このときは「NPU の計算が違う（B1）」と読んだが、上の ★追記のとおり、画像の行では CPU の側が切れていた（7 段目で訂正）
 """
 from __future__ import annotations
 
@@ -87,8 +100,13 @@ DIAG = RES / "diag_t16.json"
 # ---------------------------------------------------------------------------
 # 入れ方（diag_t16.Runner16 と同じ手順を「入力を作る」と「出力で past を進める」に分けたもの。T は 16 でも 1 でもよい）
 # ---------------------------------------------------------------------------
+# 端末の C++ の複数トークンの経路と同じ入力を作り、出力で past を進める道具（diag_t16.Runner16 を「作る」と「進める」に分けたもの）。
+# ins = グラフの入力の名前 → 形、tabs = 表。16 トークン版（past 240 ＋ 16 行）と 1 トークン版（past 256、グラフの中でずらす）の両方に使える。
+# probe_l0・probe_rows・diag_t16fix・build_t16fix もこの Feeder を借りる。
 class Feeder:
     def __init__(self, ins: dict, tabs: Tables):
+        # ins = グラフの入力の名前 → 形（Cpu.ins）。形から T（1 回の行の数）・W（窓）・P（past のスロット数）を読み、
+        # どちらの作り（16 トークン版か 1 トークン版か）かを決める
         self.ins, self.tabs = ins, tabs
         self.T = int(ins["inputs_embeds"][1])               # 1 回に入れる行（16 トークン版 16、1 トークン版 1）
         self.W = int(ins["attn_mask"][-1])                  # 注意の窓（256）
@@ -110,6 +128,7 @@ class Feeder:
             raise SystemExit(f"入力 {unknown} の作り方を知らない（グラフの入力が想定と違う）")
         self.reset()
 
+    # 新しい問題の前に past を 0、有効な数と位置を 0 に戻す
     def reset(self):
         self.past = {n: np.zeros(self.ins[n], np.float32) for n in self.kv}
         self.n_valid = 0
@@ -117,6 +136,7 @@ class Feeder:
 
     def feed(self, rows: list[tuple[int, np.ndarray | None]]) -> dict:
         """rows: 本物の行 n 個（ID と、画像の位置なら特徴の 1 行）。端末の C++ の複数トークンの経路と同じ入力を作る"""
+        # ① 本物の行: 文字は 2bit の埋め込み表・4bit の PLE 表から、画像の位置は特徴の 1 行。RoPE の表は位置の行を写す
         tb, T, P, n = self.tabs, self.T, self.P, len(rows)
         z = lambda name: np.zeros(self.ins[name], np.float32)
         emb, ple, mask = z("inputs_embeds"), z("ple_tok"), np.full(self.ins["attn_mask"], MASK_NEG, np.float32)
@@ -136,6 +156,7 @@ class Feeder:
         for r in range(n, T):                              # 空の行: 位置は最後の本物の行と同じ、埋め込み・PLE は 0
             for k in rope:
                 rope[k][0, r, 0] = tb.rope[k][pos_last]
+        # ② マスク（見る所 0・見ない所 −60）
         if self.shift:                                     # 1 トークン版: 窓の末尾の有効な数（新しい行を含む）だけ開ける
             nvi = min(self.n_valid + 1, self.W)
             mask[0, 0, 0, self.W - nvi:self.W] = 0.0
@@ -145,6 +166,7 @@ class Feeder:
                 rr = r if r < n else 0                     # 空の行のマスクは行 0 と同じ
                 mask[0, r, 0, P - nv:P] = 0.0              # past の有効な右端
                 mask[0, r, 0, P:P + rr + 1] = 0.0          # この回の自分より前（自分を含む）
+        # ③ グラフの入力にある名前だけを渡す（1 トークン版には logit_sel が無い）
         feed = {"inputs_embeds": emb, "ple_tok": ple, "attn_mask": mask, **rope, **self.past}
         if "logit_sel" in self.ins:                        # 最後の本物の行を選ぶ（16 トークン版）
             sel = z("logit_sel")
@@ -177,6 +199,7 @@ class Cpu:
     """同じ量子化済みグラフを PC の ONNX Runtime（CPU、diag_t16 と同じ設定）で動かす"""
 
     def __init__(self, path: Path):
+        # path = 量子化済みグラフ。ORT の CPU（最適化は basic。diag_t16 と同じ）で開き、入出力の名前と形を覚える
         import onnxruntime as ort
         if not path.exists():
             raise SystemExit(f"{path} が無い")
@@ -188,6 +211,7 @@ class Cpu:
         self.ins = {v.name: [int(x) for x in v.shape] for v in self.s.get_inputs()}
         self.outs = [v.name for v in self.s.get_outputs()]
 
+    # 1 回流して {出力の名前: 値} を返す
     def run(self, feed: dict) -> dict:
         return dict(zip(self.outs, self.s.run(None, feed)))
 
@@ -195,13 +219,18 @@ class Cpu:
 class Device:
     """端末の NPU で動かす（generic の infer の job。C++ の generate_kv の入れ方は通らない）"""
 
+    # model_rel = 端末の files/ からのモデルのパス、tag = job の名前に付ける札（job_id が重ならないように回数 n も付ける）
     def __init__(self, model_rel: str, tag: str):
         self.model_rel, self.tag = model_rel, tag
         self.n = 0
         self.first = None                                  # 最初の結果（開けたか・strict）
 
     def run(self, feeds: list[dict], ids: list[str], keep: bool = True) -> tuple[list[dict], dict]:
-        """feeds: 1 回ぶんの入力（名前 → 配列）のリスト。1 つの job にまとめて送り、出力（名前 → 配列）のリストを返す"""
+        """feeds: 1 回ぶんの入力（名前 → 配列）のリスト。1 つの job にまとめて送り、出力（名前 → 配列）のリストを返す
+
+        ids = 回ごとの名前、keep = 終わった後もモデルを開いたままにするか（keep_session）。戻り値: (出力のリスト, job の結果の辞書)。
+        入力は float32 の生のバイト列（.bin）にして送り、出力も .bin で取ってきて、job の結果に書かれた形に並べ直す。
+        """
         # ---- 入力をファイルにして送る（フォルダごと 1 回の push。送ったあと全部 md5 で確かめる）----
         loc = IO / "push" / Path(DEV_IN).name
         shutil.rmtree(loc, ignore_errors=True)
@@ -305,6 +334,7 @@ def run_job_retry(job: dict, retries: int = 2, cooldown: int = 30) -> dict:
 # ---------------------------------------------------------------------------
 # 比べる
 # ---------------------------------------------------------------------------
+# 相対 L2（b が基準）。float64 で計算する。
 def rel(a: np.ndarray, b: np.ndarray) -> float:
     a, b = np.asarray(a, np.float64), np.asarray(b, np.float64)
     return float(np.linalg.norm(a - b) / max(np.linalg.norm(b), 1e-12))
@@ -317,7 +347,13 @@ def layer_of(name: str) -> tuple[int, str]:
 
 
 def cmp_step(npu: dict, cpu: dict, T: int, n: int, W: int) -> dict:
-    """同じ入力での NPU（npu）と CPU（cpu、正解の側）の出力を比べる"""
+    """同じ入力での NPU（npu）と CPU（cpu、正解の側）の出力を比べる
+
+    引数: T = 1 回の行の数、n = 本物の行の数、W = 窓の長さ。戻り値: logits の比べ（相対 L2・cos・上位 5・1 位と 2 位の差）と、
+    層ごとの新しい K/V の相対 L2（kv）・最後の本物の行だけの相対 L2（kv_last_row）・行ごとの平均（row_rel_mean）・
+    層 13・14 の past の部分がそのまま戻っているか（passthru）。
+    ★2026-10-18 追記: 「正解の側」は当時の前提。画像の行では CPU の側も正規化が切れていて正しくない（モジュールの説明の追記）。
+    """
     ln = np.asarray(npu["logits"], np.float64).reshape(-1)
     lc = np.asarray(cpu["logits"], np.float64).reshape(-1)
     tn, tc = np.argsort(-ln)[:5], np.argsort(-lc)[:5]
@@ -331,6 +367,7 @@ def cmp_step(npu: dict, cpu: dict, T: int, n: int, W: int) -> dict:
         "margin_npu": round(float(ln[tn[0]] - ln[tn[1]]), 3), "margin_cpu": round(float(lc[tc[0]] - lc[tc[1]]), 3),
         "npu_logit_of_cpu_top1": round(float(ln[tc[0]]), 3),
     }
+    # 新しい行は present の「後ろから T 行目」から n 行。層ごとに全体と、行ごと（ヘッドと次元をまとめる）の差を取る
     kv, last_row, passthru = {}, {}, {}
     row_acc = np.zeros(n)
     names = sorted([k for k in cpu if k.startswith("present_")], key=lambda k: layer_of(k))
@@ -356,11 +393,14 @@ def cmp_step(npu: dict, cpu: dict, T: int, n: int, W: int) -> dict:
     return out
 
 
+# None を除いた中央値（小数 5 桁）。全部 None なら None。
 def median(xs):
     xs = [x for x in xs if x is not None]
     return round(float(np.median(xs)), 5) if xs else None
 
 
+# 問題ごとの記録をまとめる: NPU で続けた答えの 1 トークン目の一致（chain）、回ごとの 1 位の一致と logits の差（step）、
+# 層ごとの K/V の差の中央値（全体・画像の行を含む回・文字だけの回・最後の行）、16 行の回の行ごとの差、1 トークン版の基準（t1）。
 def summarize(items: list[dict], t1: dict) -> dict:
     s = {"n_items": len(items)}
     have = [r for r in items if r.get("npu_chain_first") is not None]
@@ -403,6 +443,10 @@ def summarize(items: list[dict], t1: dict) -> dict:
 # 本体
 # ---------------------------------------------------------------------------
 def main():
+    """選んだ問題を、Python で作った入力で端末の NPU と PC の CPU に 1 回ずつ通して比べ、past は NPU の出力で進める。
+
+    最後に、1 トークン版でもプロンプトの最後の 1 個を同じように比べる（基準）。結果は 1 問ごとに results/P5_t16/probe_t16.json に書き足す。
+    """
     ap = argparse.ArgumentParser()
     ap.add_argument("--items", default="", help="問題（カンマ区切り）。既定は " + ",".join(DEFAULT_ITEMS))
     ap.add_argument("--decode", type=int, default=8, help="文字を読み違えた 2 問で、答えを何トークン先まで NPU で続けるか（0 で作らない）")
@@ -440,8 +484,10 @@ def main():
     items = [done[i] for i in sel if i in done]
 
     def save():
+        # ここまでの問題の記録とまとめを結果の JSON に書く（1 問ごとに呼ぶ）
         C.write_json_atomic(out_path, {**meta, "items": items, "t1": t1, "summary": summarize(items, t1)})
 
+    # ① 16 トークン版: 問題ごとに、プロンプトを 16 個ずつ NPU と CPU に同じ入力で通し、回ごとに比べる
     todo = [i for i in sel if i not in done]
     if todo:
         t16_rel = D.push_t16(D.T16_KINDS[a.model])         # 端末に 16 トークン版があるか（md5 で確かめ、無ければ送る）
@@ -528,6 +574,7 @@ def main():
         del cpu
         gc.collect()
 
+    # ② 1 トークン版の基準: 16 トークン版で NPU が作った past（最後の 1 個の手前まで）を 256 スロットの右詰めに入れて、最後の 1 個を通す
     # ---- 基準: 1 トークン版で、プロンプトの最後の 1 個を同じ入力で NPU と CPU に ----
     need = [i for i in sel if i not in t1 and (IO / "t1" / f"{i}.npz").exists()]
     if not a.no_t1 and a.model == "t16" and need:
@@ -562,6 +609,7 @@ def main():
             D.adb("shell", f"am force-stop {D.PKG}")
             save()
 
+    # ③ まとめを表示する
     save()
     s = summarize(items, t1)
     ch, stp = s["chain"], s["step"]

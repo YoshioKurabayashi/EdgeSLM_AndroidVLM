@@ -19,6 +19,10 @@
 - 活性は 16bit（A16、テンソル全体で 1 つの目盛り、MinMax）。較正は評価用と別の 64 枚（export_vit が用意した calib npz）
 - 重みは INT8・出力チャネルごと（QAT の 112 本は整数とスケールをそのまま、パッチの埋め込み・射影層は作り直し）
 - 結果は `results/P2_vit_quant/{tag}_quantize.json`
+- 2026-09-28 の実行の記録: `results/P2_20260928_vit_quant.md`（249 秒。2 版とも C-1・C-5 合格、C-8 の右辺 32/32、大きさ 149.9MiB）
+- 入力: `work/ops/vit_{tag}/vit_{tag}.onnx`（export_vit が書いた float の ONNX）・同じ名前の `.spec.json`・`_calib.npz`
+- 出力: 上の表の `*_final_qdq.onnx`（これを build_vit_ctx が v68 の context binary にする）
+- StudyMemo 7.9 節（量子化）・8.4〜8.5 節（C-14 の見張り）
 """
 from __future__ import annotations
 
@@ -33,11 +37,16 @@ RES = C.RESULTS / "P2_vit_quant"
 SCHEME = "a16w8_rhs8"
 
 
+# 予算（画像トークン数）と向きから、ファイル名に使う札（例: "b70_21x30"）を作る。
+# 格子（パッチの縦×横）は vlm_common の表から引く。縦長の写真用は PORTRAIT_GRIDS（後から足した表）。
 def tag_for(budget: int, portrait: bool) -> str:
     grid = (C.PORTRAIT_GRIDS if portrait else C.FIXED_GRIDS)[budget]
     return f"b{budget}_{grid[0]}x{grid[1]}"
 
 
+# 1 つの札について、量子化の各段の入出力のパスをまとめた辞書を返す。
+# "qdq" と "final" は版（"srq" / "nosrq"）を引数に取る関数。2 版で同じ前処理の結果を使い回すため、
+# 前処理・較正の出力（prepped・qdq_ort）は版に依らない名前にしてある。
 def paths(tag: str) -> dict:
     name = f"vit_{tag}"
     d = C.OPS / name
@@ -47,6 +56,12 @@ def paths(tag: str) -> dict:
 
 
 def main():
+    """量子化の 4 段（前処理・較正・量子化 → QAT の値 → C-8 → 検査）を版ごとに流し、結果を JSON に書く。
+
+    引数: --budget（画像トークン数。既定 70）・--portrait（縦長の格子）・--variants（"srq,nosrq"）・--redo-prepare。
+    戻り値は無く、`results/P2_vit_quant/{tag}_quantize.json` に段ごとの結果を書く。
+    前処理・較正（[1/4]）は時間がかかる（2026-09-28 の実行で全体 249 秒）ので、済んでいて入力より新しければ飛ばす。
+    """
     ap = argparse.ArgumentParser()
     ap.add_argument("--budget", type=int, default=70, choices=sorted(C.FIXED_GRIDS))
     ap.add_argument("--portrait", action="store_true")
@@ -54,9 +69,11 @@ def main():
     ap.add_argument("--redo-prepare", action="store_true", help="較正・量子化（時間がかかる段）からやり直す")
     a = ap.parse_args()
     C.utf8_stdout()
+    # 量子化の道具は EdgeSLM_Android の venv（onnx・onnxruntime）にしか無いので、関数の中で読み込む
     from app.pipeline import downgrade_actact_rhs, p2b_ops, verify_artifacts
     from app.pipeline import qat_inject_vit as Q
 
+    # ① 入力の float の ONNX があるかを確かめる（export_vit export の出力）
     tag = tag_for(a.budget, a.portrait)
     P = paths(tag)
     if not P["src"].exists():
@@ -89,6 +106,7 @@ def main():
     else:
         print(f"[1/4] 前処理・較正・量子化は済んでいる（{P['qdq_ort'].name}）。やり直すなら --redo-prepare", flush=True)
 
+    # ② 版ごとに: QAT の値を書く → C-8 → 検査。lin は QAT の線形層の一覧（どの重みに QAT の整数を書くか）
     lin = Q.vit_linears()
     for v in a.variants.split(","):
         srq = {"srq": True, "nosrq": False}[v]
@@ -97,6 +115,7 @@ def main():
         inj = Q.inject(P["qdq_ort"], P["prepped"], lin, P["qdq"](v), srq=srq)
         print("[3/4] 活性×活性の行列積の右辺を 8bit に（C-8）", flush=True)
         dg = downgrade_actact_rhs.run(P["qdq"](v), P["prepped"], P["final"](v))
+        # 想定の右辺の数: 1 層の注意に活性×活性の行列積が 2 つ（Q×Kᵀ と 確率×V）あり、16 層で 32
         exp_rhs = C.VIT_LAYERS * 2
         print(f"  右辺の数 {dg['n_rhs']}（想定 {exp_rhs}）・8bit に落とした {len(dg['done'])}・"
               f"対象外（既に 8bit など） {len(dg['skipped'])}", flush=True)
@@ -111,6 +130,7 @@ def main():
               f"（{c14['min_ratio_tensor']}、下限 {Q.SCALE_FLOOR_RATIO:.4f}）", flush=True)
         print(f"  C-1: {'合格' if c1.ok else '★不合格'}  {c1.get('detail', '')}", flush=True)
         print(f"  C-5: {'合格' if c5.ok else '★不合格'}", flush=True)
+        # ③ 版ごとの結果をまとめる。大きさは 2026-09-28 の実行で 149.9MiB（float の 587MiB の約 1/4。results/P2_20260928_vit_quant.md）
         size = P["final"](v).stat().st_size
         out["variants"][v] = {"final_qdq": str(P["final"](v)), "size_mib": round(size / 2**20, 1),
                               "inject": {k: inj[k] for k in ("written", "retyped_int8", "srq_inputs", "srq_outputs",

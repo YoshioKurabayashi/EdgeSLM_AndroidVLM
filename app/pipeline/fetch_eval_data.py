@@ -19,6 +19,11 @@
 
 parquet を読むには pyarrow が要るが、借りている venv（EdgeSLM_MultiHead_Multi）には入っていない。
 venv のパッケージは変えない約束なので、**標準ライブラリ（urllib）だけ**で取れる JSON の API を使う。
+
+## 使う段
+
+- 評価セットの準備（StudyMemo 5.1 節）。問題の定義は eval_defs.py、合成画像は synth_images.py、判定の語は judge.py
+- 動かす venv は Phase 1 の EdgeSLM_MultiHead_Multi（$PY1）。合計 126 問（VG 40・Wild 50・車 21・合成 15）
 """
 from __future__ import annotations
 
@@ -34,6 +39,7 @@ from app.pipeline import synth_images
 from app.pipeline import vlm_common as C
 from app.pipeline.judge import answer_to_keywords
 
+# 画像の置き場と一覧のファイル、通信のときの名乗り（User-Agent）、datasets-server の行を返す API
 IMG_DIR = C.EVAL_DIR / "images"
 MANIFEST = C.EVAL_DIR / "manifest.json"
 UA = {"User-Agent": "EdgeSLM_AndroidVLM/0.1 (research; contact: local)"}
@@ -56,6 +62,7 @@ def http_get(url: str, timeout: int = 60, retries: int = 3) -> bytes:
 
 def fetch_rows(dataset: str, split: str, n: int) -> list[dict]:
     """datasets-server の /rows から先頭 n 行を取る（1 回 100 行まで）。"""
+    # 100 行ずつ offset をずらして取る（返ってこなくなったら打ち切る）。各行は {"row": {...}} の形で返る
     rows, off = [], 0
     while off < n:
         q = urllib.parse.urlencode({"dataset": dataset, "config": "default", "split": split,
@@ -69,6 +76,7 @@ def fetch_rows(dataset: str, split: str, n: int) -> list[dict]:
     return rows[:n]
 
 
+# 画像を保存する（既にあって 0 バイトでなければ取り直さない。2 回目からは通信しない）。
 def save_image(url: str, path: Path) -> None:
     if path.exists() and path.stat().st_size > 0:
         return
@@ -76,6 +84,7 @@ def save_image(url: str, path: Path) -> None:
     path.write_bytes(http_get(url))
 
 
+# URL の拡張子が .png なら .png、それ以外は .jpg として保存する。
 def _ext(url: str) -> str:
     p = urllib.parse.urlparse(url).path.lower()
     return ".png" if p.endswith(".png") else ".jpg"
@@ -84,6 +93,8 @@ def _ext(url: str) -> str:
 # ---------------------------------------------------------------------------
 # 出どころごとの取得
 # ---------------------------------------------------------------------------
+# JA-VG-VQA-500 の先頭 40 画像の最初の 1 問ずつ。正解の文から judge.answer_to_keywords で判定の語を作る。
+# 戻り値: manifest の 1 件の辞書（id・set・tags・image・question・answer_ref・keywords・max_new・source・license）の並び。
 def collect_vg() -> list[dict]:
     rows = fetch_rows(D.VG_DATASET, D.VG_SPLIT, D.VG_N_IMAGES)
     items = []
@@ -105,6 +116,7 @@ def collect_vg() -> list[dict]:
     return items
 
 
+# JA-VLM-Bench-In-the-Wild の 50 問。判定の語は eval_defs.WILD_KEYWORDS（行番号で引く）。同じ画像の問題は画像を 1 回だけ保存する。
 def collect_wild() -> list[dict]:
     rows = fetch_rows(D.WILD_DATASET, D.WILD_SPLIT, 50)
     items, cache = [], {}
@@ -131,6 +143,7 @@ def collect_wild() -> list[dict]:
     return items
 
 
+# 車の写真 13 枚（Unsplash から幅 1600 で取得）。1 枚に複数の問題があれば id の末尾に a・b・c を付ける。
 def collect_car() -> list[dict]:
     items = []
     for c in D.CAR_IMAGES:
@@ -146,6 +159,7 @@ def collect_car() -> list[dict]:
     return items
 
 
+# 合成画像（無ければ synth_images.build で作る）。問題が 1 つの画像は id の末尾に何も付けない。
 def collect_synth() -> list[dict]:
     meta = synth_images.build(force=False)
     items = []
@@ -161,6 +175,7 @@ def collect_synth() -> list[dict]:
 
 
 def main():
+    """4 つの出どころから問題を集めて work/eval/manifest.json に書く（--check は数えるだけ）。system の文も一覧に入れる。"""
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="通信せず、manifest の件数だけ数える")
     a = ap.parse_args()

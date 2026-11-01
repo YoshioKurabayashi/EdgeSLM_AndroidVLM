@@ -20,8 +20,16 @@ import java.io.File
  * 処理順は HuggingFace と同じ: **特殊トークンの切り出し → NFC 正規化 → pre-tokenize
  * → ByteLevel 写像 → BPE**。HF との ID 列一致は `golden.jsonl` で端末上で確認できる
  * （`task: "tokenize"` のジョブ。`TokenizerCheck.kt`）。
+ *
+ * 使う段: EdgeSLM_AndroidDemo の D2（端末でトークナイズする）から。チャット画面・KV の画面・窓ずらしの画面が、
+ *   文 → ID 列（encode）と ID 列 → 文（decodeStreaming・decode）に使う（StudyMemo 2 章）。Qwen3 も同じ形の辞書で読める。
+ * 入力: `files/tokenizer/` の vocab.txt・merges.txt・specials.tsv（PC の host/make_tokenizer_assets.py が書き出す）。
+ * 出力: Int の ID 列、または文字列。
+ * 結果: 端末で golden 31/31・decode の往復 31/31（results/D2_20260913_tokenizer_verify.md）。
+ * （2026-10-18 学習用に追記）
  */
 class Qwen2Tokenizer private constructor(
+    // idToToken: ID → 語（ByteLevel の写像の後の文字列）、tokenToId: その逆引き、ranks: 「左 右」の文字列 → マージの優先度
     private val idToToken: Array<String>,
     private val tokenToId: HashMap<String, Int>,
     private val ranks: HashMap<String, Int>,
@@ -29,6 +37,8 @@ class Qwen2Tokenizer private constructor(
     private val idToSpecial: HashMap<Int, String>,
 ) {
 
+    // 同じ断片（単語など）の BPE の結果を覚えておく。会話では同じ語が何度も出るので、2 回目からは辞書を引くだけで済む
+    //   ★消さずに増え続ける（推定: 1 回の会話の長さなら問題にならない大きさ）
     private val bpeCache = HashMap<String, List<String>>()
 
     // ---------------------------------------------------------------- encode
@@ -40,6 +50,10 @@ class Qwen2Tokenizer private constructor(
         return out.toIntArray()
     }
 
+    /**
+     * 特殊トークンで文を切り、間の普通の文を encodeOrdinary へ回す（再帰）。
+     * 一番前に現れる特殊トークンを探し、「その前の普通の文 → 特殊トークンの ID → 残りを同じ手順で」の順に足す。
+     */
     private fun encodeInto(text: String, out: MutableList<Int>) {
         if (text.isEmpty()) return
 
@@ -63,6 +77,7 @@ class Qwen2Tokenizer private constructor(
         encodeOrdinary(text, out)
     }
 
+    /** 普通の文（特殊トークンを含まない）を ID にする。① NFC 正規化 → ② 正規表現で断片に割る → ③ 断片ごとに emitPiece。 */
     private fun encodeOrdinary(rawText: String, out: MutableList<Int>) {
         if (rawText.isEmpty()) return
 
@@ -74,6 +89,8 @@ class Qwen2Tokenizer private constructor(
         //
         // これが無いと、**分解済み（NFD）で入ってきた文字で HF と ID 列が変わる**。
         // 2026-09-13 に 31ケースで実測した結果:
+        //   （★2026-10-18 補足: この 27/31 は PC の照合スクリプト（EdgeSLM_Android の verify_device_tokenizer.py）の 31 件での数。
+        //     端末の golden.jsonl は分解済みが 5 件あるので、NFC を外すと 26/31 になる。EdgeSLM_AndroidDemo の StudyMemo 2 章）
         //   NFC なし 27/31 一致 / NFC あり 31/31 一致
         // 外れていたのは4件すべて分解済み入力だった:
         //   "が"（濁点が別文字）   HF [28195,…] / 旧実装 [31049,3402,247,…]
@@ -87,6 +104,7 @@ class Qwen2Tokenizer private constructor(
         // Android に標準で入っている（追加依存ゼロ）。
         val text = java.text.Normalizer.normalize(rawText, java.text.Normalizer.Form.NFC)
 
+        // ② 正規表現（下の companion の分割規則）で、単語・数字 1 けた・記号・空白などの断片に割る
         var cursor = 0
         val m = PATTERN.matcher(text)
         while (m.find()) {
@@ -98,6 +116,7 @@ class Qwen2Tokenizer private constructor(
         if (cursor < text.length) emitPiece(text.substring(cursor), out)
     }
 
+    /** 1 つの断片を ID にして out に足す。③ UTF-8 のバイト → 表示できる文字（ByteLevel）→ BPE → 語彙で ID を引く。 */
     private fun emitPiece(piece: String, out: MutableList<Int>) {
         if (piece.isEmpty()) return
         // ByteLevel: UTF-8 バイト列にしてから、1バイトを1文字へ写像する
@@ -124,6 +143,7 @@ class Qwen2Tokenizer private constructor(
      * 優先度が高い場合に順序が変わり、HuggingFace と違うID列になる。
      */
     private fun bpe(token: String): List<String> {
+        // ① 1 文字ずつに分ける（この時点の 1 文字は ByteLevel の写像で 1 バイトに当たる）
         bpeCache[token]?.let { return it }
         var word = ArrayList<String>(token.length)
         for (c in token) word.add(c.toString())
@@ -132,6 +152,7 @@ class Qwen2Tokenizer private constructor(
             return word
         }
 
+        // ② 隣り合う組のうち、優先度が一番高い（ranks の値が小さい）組を選ぶ。merges.txt の行は「左 右」の形なので、空白でつないで引く
         while (true) {
             var bestRank = Int.MAX_VALUE
             var bestA = ""
@@ -146,6 +167,7 @@ class Qwen2Tokenizer private constructor(
             }
             if (bestRank == Int.MAX_VALUE) break
 
+            // ③ 選んだ組を、左から順にすべての場所で繋ぐ（上の注記: 左端の 1 か所だけにすると HF と違う列になる）
             val next = ArrayList<String>(word.size)
             var i = 0
             while (i < word.size) {
@@ -167,6 +189,7 @@ class Qwen2Tokenizer private constructor(
     // ---------------------------------------------------------------- decode
 
     /** トークンID列 → バイト列。UTF-8 の途中で切れることがあるのでバイトで返す。 */
+    // 特殊トークンは書かれている文字のまま、普通の語は表示用の文字を元のバイトへ戻して並べる。範囲外の ID は飛ばす
     fun decodeToBytes(ids: List<Int>): ByteArray {
         val buf = java.io.ByteArrayOutputStream()
         for (id in ids) {
@@ -193,6 +216,7 @@ class Qwen2Tokenizer private constructor(
      */
     fun decodeStreaming(ids: List<Int>): String {
         val bytes = decodeToBytes(ids)
+        // 例: 「あ」は E3 81 82。末尾が E3 81 だけなら先頭バイト E3 は 3 バイトを要るので、その 2 バイトは次の回へ持ち越す
         var end = bytes.size
         // 末尾から最大3バイト見て、途中で切れた UTF-8 シーケンスなら落とす
         var i = bytes.size - 1
@@ -215,6 +239,7 @@ class Qwen2Tokenizer private constructor(
         return String(bytes, 0, end, Charsets.UTF_8)
     }
 
+    /** 全部をそのまま文字にする（最後まで出し終えた後や、照合（TokenizerCheck）で使う）。 */
     fun decode(ids: List<Int>): String = String(decodeToBytes(ids), Charsets.UTF_8)
 
     // ---------------------------------------------------------------- 読み込み
@@ -241,6 +266,7 @@ class Qwen2Tokenizer private constructor(
                 "|\\s+"
         )
 
+        // BYTE_TO_CHAR: バイト（0〜255）→ 表示できる文字、CHAR_TO_BYTE: その逆（decode で使う）
         private val BYTE_TO_CHAR: CharArray = buildByteToChar()
         private val CHAR_TO_BYTE: HashMap<Char, Int> = HashMap<Char, Int>().also { m ->
             for (b in 0..255) m[BYTE_TO_CHAR[b]] = b
@@ -259,6 +285,7 @@ class Qwen2Tokenizer private constructor(
             for (b in 0xA1..0xAC) direct.add(b)
             for (b in 0xAE..0xFF) direct.add(b)
             var n = 0
+            // 表示できるバイトはそのままの文字、それ以外（制御文字・空白など 68 個）は U+0100 から順に割り当てる。例: 空白 0x20 → U+0120「Ġ」
             for (b in 0..255) {
                 out[b] = if (direct.contains(b)) b.toChar() else (256 + n++).toChar()
             }
@@ -274,17 +301,20 @@ class Qwen2Tokenizer private constructor(
                 if (!f.isFile) throw IllegalStateException("tokenizer asset missing: ${f.absolutePath}")
             }
 
+            // ① 語彙: 1 行 1 語、行番号が ID
             val tokens = vocabFile.readLines()
             val idToToken = Array(tokens.size) { tokens[it] }
             val tokenToId = HashMap<String, Int>(tokens.size * 2)
             for (i in tokens.indices) tokenToId[tokens[i]] = i
 
+            // ② マージの規則: 上の行ほど優先度が高い（rank が小さい）。空行は数えない
             val ranks = HashMap<String, Int>(200_000)
             var rank = 0
             mergesFile.forEachLine { line ->
                 if (line.isNotEmpty()) ranks[line] = rank++
             }
 
+            // ③ 追加トークン: 「ID<TAB>内容」の行。encode の切り出しと decode の両方に使う
             val specials = ArrayList<Pair<String, Int>>()
             val idToSpecial = HashMap<Int, String>()
             specialsFile.forEachLine { line ->

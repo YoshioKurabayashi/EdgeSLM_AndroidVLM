@@ -29,6 +29,11 @@
 - ほかのアプリは閉じておく（最近のアプリの一覧から全部消す）。カメラの間にデモが OS に止められにくくなる
 - 画面の自動回転は切る（デモの画面は縦固定。カメラアプリだけ横になることがある）
 """
+# ---- 2026-10-18 追記: 入力と出力 ----
+# 入力: USB でつないだ端末（デモのアプリが入っていること）。PC のキーボードの Enter で録画を止める。
+# 出力: results/P3_device_vlm/demo/vlm_demo_<日時>[_<tag>].mp4 と、同じ名前の _log.txt（logcat の EdgeSLMVlm）。
+#       端末にも /sdcard/Movies/VLMDemo/ に動画が残る。
+# adb の道具（adb・wake・ensure_app・mem_available_mib）は device_vit から借りる。
 from __future__ import annotations
 
 import argparse
@@ -52,10 +57,14 @@ def resumed_activity() -> str:
 
 
 def vlm_in_front() -> bool:
+    """VLM デモの画面（VlmActivity）がいま前に出ているか。"""
     return "VlmActivity" in resumed_activity()
 
 
 def main():
+    """録画の本体。冒頭の「何をするか」の 1〜6 をこの順に行う（コメントの「# 1.」〜「# 6.」）。
+    --seconds は 1〜180 に丸める（端末の screenrecord の上限が 180 秒）。
+    """
     ap = argparse.ArgumentParser()
     ap.add_argument("--seconds", type=int, default=180, help="最長の秒数（1〜180）")
     ap.add_argument("--bitrate", type=float, default=8.0, help="動画のビットレート（Mbps）。8 で 1 分 約 60MB")
@@ -113,6 +122,7 @@ def main():
     print(f"\n  ● 録画中（最長 {sec} 秒）。スマホでデモを操作してください。終わったら PC でこの画面を選んで Enter", flush=True)
 
     # 4. Enter か、最長の秒数で止める
+    # 入力待ち（input）は止まってしまうので別のスレッドで待ち、Enter が来たら pressed を立てる。本体は 0.3 秒ごとに見る
     pressed = threading.Event()
     threading.Thread(target=lambda: (input(), pressed.set()), daemon=True).start()
     last = -1

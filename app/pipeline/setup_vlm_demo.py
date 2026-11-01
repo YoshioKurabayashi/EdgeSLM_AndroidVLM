@@ -20,6 +20,14 @@
 - Gemma4 のアプリの置き場は**読むだけ**（端末の中の `cp`。PC を通さないので速い）。Gemma4 のアプリもプロジェクトも変えない
 - 文章側のモデルの場所・表の名前は、Gemma4 の会話アプリの設定（`../EdgeSLM_AndroidGemma4/jobs/chat_models.json` の `gemma4-l256`）から取る
 - 写す前に端末の空き容量を確かめる。同じ大きさのファイルが既にあれば写さない（2 回目からは速い）
+
+## 使う段・入力と出力
+
+- Phase 3（基本設計_Phase3.md、StudyMemo 9 章「端末でつなぐ」・11 章「写真から答えまで」）と Phase 5（`--text t16`、10 章）
+- 入力: 端末の Gemma4 のアプリの置き場のファイル、PC の画像エンコーダ（work/ops/vit_b70_21x30/ の SRQ なしの版）、評価の一覧
+  `work/eval/manifest.json`（system の文を借りる）
+- 出力: 端末の `files/` の下に写したモデル・表・トークナイザと `jobs/vlm_demo.json`（VlmActivity が読む設定）
+- 画像エンコーダを SRQ なしの版にするのは、端末で 126 問を解いた評価（device_vlm eval）で使った版と同じにするため（端末の評価の結果名も `…_nosrq_dev`。StudyMemo 9.6 節）
 """
 from __future__ import annotations
 
@@ -31,10 +39,13 @@ from pathlib import Path
 from app.pipeline import device_vit as D
 from app.pipeline import vlm_common as C
 
+# 写し元（Gemma4 の会話アプリの置き場）と、その設定のどのモデルを使うか。
+# TEXT_KEY は窓 256 の 1 トークン版（Gemma4 の会話アプリで実機で動いているもの）。
 G4_DEV = f"/sdcard/Android/data/{D.G4_PKG}/files"
 G4_CHAT_CONFIG = C.GEMMA4_ROOT / "jobs" / "chat_models.json"
 TEXT_KEY = "gemma4-l256"
 TOKENIZER_FILES = ("vocab.bin", "merges.bin", "specials.tsv", "tokenizer_meta.json")
+# 画面に出す質問の候補（VlmActivity が設定の suggestions からボタンを作る）
 SUGGESTIONS = ["この画像を説明してください。", "何が写っていますか？", "書かれている文字を読んでください。"]
 IO = C.WORK / "device_vlm"
 
@@ -42,12 +53,15 @@ IO = C.WORK / "device_vlm"
 def dev_size(path: str) -> int:
     """端末のファイルの大きさ（無ければ −1）。"""
     out = D.adb("shell", f"stat -c %s {path} 2>/dev/null || echo -1", check=False).strip().splitlines()
+    # stat の出力の最後の行を数として読む（無ければ echo の −1、adb が何も返さなければ −1）
     try:
         return int(out[-1])
     except (ValueError, IndexError):
         return -1
 
 
+# Gemma4 の会話アプリの設定から、TEXT_KEY のモデルの job（モデルのパス・表の名前・RoPE の表など）を取り出す。
+# 文章側の設定を自分で書かず借りるのは、実機で動いている組み合わせをそのまま使うため（モジュールの説明のとおり）。
 def text_job() -> dict:
     cfg = json.loads(G4_CHAT_CONFIG.read_text(encoding="utf-8"))
     m = next((m for m in cfg["models"] if m["key"] == TEXT_KEY), None)
@@ -57,7 +71,11 @@ def text_job() -> dict:
 
 
 def needed_files(job: dict) -> list[str]:
-    """文章側で使うファイル（files からの相対パス）。context binary の名前は EPContext の中から読む。"""
+    """文章側で使うファイル（files からの相対パス）。context binary の名前は EPContext の中から読む。
+
+    引数: job = text_job() の辞書。戻り値: 写すファイルの相対パスの並び（モデル・表・スケール・RoPE の表・context binary・トークナイザ）。
+    EPContext の ONNX（小さい）を PC へ一度取ってきて、中に書かれた「〜.bin」の名前を拾う（ONNX を開かずにバイト列から探す）。
+    """
     rels = [job["model"], job["embed_table"], job["embed_scales"], job["ple_table"], job["ple_scales"],
             *job["rope_tables"].values()]
     IO.mkdir(parents=True, exist_ok=True)
@@ -73,6 +91,10 @@ def needed_files(job: dict) -> list[str]:
 
 
 def main():
+    """端末へ文章側のモデル・表を写し（端末の中の cp）、画像エンコーダと設定 jobs/vlm_demo.json を送る。
+
+    引数: --budget（画像トークン数。既定 70）・--dry-run（写すものと容量の表示だけ）・--text（t1 / t16）・--system（system の文）。
+    """
     ap = argparse.ArgumentParser()
     ap.add_argument("--budget", type=int, default=70)
     ap.add_argument("--dry-run", action="store_true")
@@ -81,9 +103,11 @@ def main():
     ap.add_argument("--system", default="", help="system の文を差し替える（既定は評価と同じ文）")
     a = ap.parse_args()
     C.utf8_stdout()
+    # ① アプリ（org.edgeslm.vlm）と、写し元の Gemma4 の会話アプリが端末に入っているかを確かめる
     D.ensure_app()
     if D.G4_PKG not in D.adb("shell", f"pm path {D.G4_PKG} || true", check=False):
         raise SystemExit(f"{D.G4_PKG}（Gemma4 の会話アプリ）が端末に無い。文章側のモデルの写し元が無い")
+    # ② 写すものの一覧を作る。写し先に同じ大きさのものがあれば写さない（大きさだけで同じとみなす）
     job = text_job()
     rels = needed_files(job)
     plan, total = [], 0
@@ -97,6 +121,7 @@ def main():
         same = dev_size(dst) == s
         plan.append((rel, s, same))
         total += 0 if same else s
+    # ③ 端末の空きを df で読む（4 列目が空きの KB）。読めなければ −1（空きの確かめを飛ばす）
     free_kb = D.adb("shell", f"df -k {D.DEV} | tail -1", check=False).split()
     free = int(free_kb[3]) * 1024 if len(free_kb) > 3 and free_kb[3].isdigit() else -1
     print(f"  写すもの {len(plan)} 個（新しく写す {sum(1 for p in plan if not p[2])} 個、{total / 2**30:.2f}GiB）、"
@@ -107,6 +132,7 @@ def main():
         return
     if free >= 0 and total > free - 512 * 2**20:
         raise SystemExit("端末の空きが足りない（512MiB の余裕を残す）")
+    # ④ 端末の中で cp する（1 ファイル最大 30 分まで待つ）。写した後に大きさを読み直して確かめる
     for rel, s, same in plan:
         if same:
             continue
@@ -120,6 +146,8 @@ def main():
     tag, grid = D.tag_for(a.budget, False)
     vit_rel = D.push_models(tag, ["nosrq"])["nosrq"]
     # 画面の設定
+    # ⑤ 設定を作る。画像トークン数は格子をプーリング（3×3）で割った数（70 トークンなら 21×30 → 7×10）。
+    #    max_new（答えの最大トークン数）96・stop_ids は評価と同じ。system の文は指定が無ければ評価の一覧のもの
     man = json.loads((C.EVAL_DIR / "manifest.json").read_text(encoding="utf-8"))
     text = dict(job)
     if a.text == "t16":

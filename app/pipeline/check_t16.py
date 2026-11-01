@@ -21,6 +21,13 @@ Gemma4 が取ってある状態（8 会話・245 位置、HF で丸めあり）�
 - 見るもの: 1 位の一致、上位 5 の重なり、logits の相対 L2（16 ↔ 1 トークン版）
 
 結果: `results/P5_t16/check_t16.json`
+
+## 使う段・結果
+
+- Phase 5 の確かめの 3 段のうち ②（StudyMemo 10.6 節）。① は build_t16 の equiv（浮動小数どうし）、③ は端末で 126 問
+- 2026-09-29 の結果: 1 位の一致 16↔1 トークン版 5/5、16↔HF 4/5（1 トークン版↔HF も 4/5）（StudyMemo 10.6 節の表、
+  `results/P5_20261003_t16_accuracy.md`）。→ 量子化と書き込みは正しい
+- 入力: build_t16 --steps merge で繋いだ `*_final_qdq.onnx`、Gemma4 が取ってある状態（`chunk_0_8_L256.npz`・`chunk_9_17_L256.npz`・`head_L256.npz`）
 """
 from __future__ import annotations
 
@@ -34,9 +41,11 @@ from app.pipeline import build_t16 as B
 from app.pipeline import gemma4_common as G
 from app.pipeline import vlm_common as C
 
+# 比べる相手の 1 トークン版（Gemma4 の繋いだ QDQ。読むだけ）
 T1_QDQ = G.G4_OPS / "g4full_L256" / "g4full_L256_final_qdq.onnx"
 
 
+# ORT の CPU のセッションを開く（最適化は basic まで。読み込みに時間がかかるので秒数を表示する）。
 def session(path):
     import onnxruntime as ort
     so = ort.SessionOptions()
@@ -49,6 +58,9 @@ def session(path):
 
 def inputs_t16(caps: dict, i: int, r: int, names: list[str]) -> dict:
     """16 トークン版の入力（1 回ぶん）。build_t16.make_inputs と同じ作り方。"""
+    # caps = {"A": 層 0〜8 のかたまりの取ってある値, "B": 層 9〜17}、i = 窓の始めの位置、r = logit_sel で選ぶ行（0〜15）。
+    # 位置ごとの入力（埋め込み・PLE・RoPE の表）は i〜i+15 の 16 個を縦に並べて [1,16,…] にする。
+    # マスクは位置 i の時点の「past の有効な数」から 16 行ぶんを作り直す。past は 256 スロットの後ろ 240 だけを使う。
     a, b = caps["A"], caps["B"]
     feed = {}
     for nm in names:
@@ -57,6 +69,7 @@ def inputs_t16(caps: dict, i: int, r: int, names: list[str]) -> dict:
         elif nm == "attn_mask":
             feed[nm] = B.mask_rows(B.past_valid(a["attn_mask"][i]))[None]
         elif nm.startswith("past_"):
+            # past_k_<層> の層の番号が 8 以下ならかたまり A（層 0〜8）、それより後ろはかたまり B の取ってある値から取る
             src = a if int(nm.rsplit("_", 1)[1]) <= 8 else b
             feed[nm] = src[nm][i][:, B.W - B.P:, :][None].astype(np.float32)
         elif nm == "logit_sel":
@@ -70,6 +83,7 @@ def inputs_t16(caps: dict, i: int, r: int, names: list[str]) -> dict:
 
 def inputs_t1(caps: dict, j: int, names: list[str]) -> dict:
     """1 トークン版の入力（位置 j、取ってある値そのまま）。"""
+    # 1 トークン版は取ってある位置 j の入力と past（256 スロット）をそのまま渡す（自分の過去の出力は使わない）
     a, b = caps["A"], caps["B"]
     feed = {}
     for nm in names:
@@ -84,6 +98,11 @@ def inputs_t1(caps: dict, j: int, names: list[str]) -> dict:
 
 
 def main():
+    """選んだ窓・行について、16 トークン版・1 トークン版・HF の正解の 1 位と上位 5 を比べ、結果を JSON に書く。
+
+    引数: --n（窓の数、既定 4）・--no-t1（1 トークン版と比べない）。
+    窓ごとに行 15（最後の行）を見て、最初の窓だけ行 7 も見る（途中の行の選択も正しいかを確かめるため）。
+    """
     ap = argparse.ArgumentParser()
     ap.add_argument("--n", type=int, default=4, help="窓の数")
     ap.add_argument("--no-t1", action="store_true", help="1 トークン版と比べない（HF とだけ比べる。速い）")
@@ -94,10 +113,13 @@ def main():
         raise SystemExit(f"{full} が無い。先に build_t16 --steps merge")
     caps = {"A": B.Capture("chunk_0_8_L256.npz"), "B": B.Capture("chunk_9_17_L256.npz")}
     head = B.Capture("head_L256.npz")
+    # ① 比べる窓を選ぶ: 使える窓（1 つの会話の中で 16 位置が続く所）から等間隔に n 個
     win = B.windows(caps["A"])
     picks = [win[int(k)] for k in np.linspace(0, len(win) - 1, a.n).astype(int)]
     cases = [(i, B.T - 1) for i in picks] + [(picks[0], 7)]
 
+    # ② 16 トークン版を流す。出力は logits だけを取り出す（大きいので present は読まない）。
+    #    2 つのセッションを同時に持たないように、終わったら del でメモリを返す
     # ---- 16 トークン版 ----
     s16 = session(full)
     n16 = [v.name for v in s16.get_inputs()]
@@ -128,6 +150,7 @@ def main():
                 print(f"  1 トークン版: 位置 {i + r} → 1 位 {int(lg.argmax())}（{time.time() - t0:.1f}s）", flush=True)
             del s1
 
+    # ③ 位置 j = i + r について、HF の正解（丸めあり）と 1 トークン版との 1 位の一致・上位 5 の重なり・logits の相対 L2 を取る
     # ---- 比べる ----
     rows = []
     for i, r in cases:

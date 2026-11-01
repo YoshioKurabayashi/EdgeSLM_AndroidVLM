@@ -1,0 +1,179 @@
+<<OUT DoC/StudyMemo/12_ソースと動かし方.md>>
+# 12. ソースと動かし方 ― 1〜11 章の内容を、実際のソースとコマンドで確かめる
+
+> **このファイルは生成物**です（`app/study/make_code_tour.py` が `app/study/tour/12_map.md` とソースから作る。2026-10-14）。
+> 行番号（L123）は作った時点のソースのもので、ソースを直して目印がずれると作り直しの段階で止まります。
+> 実際のコードの抜き出しと 1 行ずつの解説は [13 章](13_コードで読む検証.md)。
+
+| | |
+|---|---|
+| 目的 | 1〜11 章で学んだことを、**どのファイルのどの関数がやっているか**・**どのコマンドで確かめられるか**・**どの結果ファイルに数字があるか**まで辿れるようにする |
+| 置き場所 | `D:\AI\source\n_chap5\EdgeSLM_AndroidVLM`。下の表のパスはここからの相対パス |
+| 前提 | 文章だけの LLM の話（量子化・QDQ・C-1〜C-13）は EdgeSLM_Android の StudyMemo（13・14 章がソースとの対応） |
+
+## 12.0 読み方と準備
+
+- 1〜11 章を読みながら、知りたい節を **12.3** の表で引く。中身を読みたいときは [13 章](13_コードで読む検証.md)
+- 手元で数字の意味を確かめたいときは **12.2 の演習**（スマホも GPU も要らない。数秒）
+- venv は 2 つを使い分ける（どちらも**借りている**。パッケージは足さない）:
+
+```powershell
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$PY1 = "D:\AI\source\n_chap5\EdgeSLM_MultiHead_Multi\.venv\Scripts\python.exe"   # CUDA の torch・transformers 5.14.1（HF で動かす道具）
+$PY2 = "D:\AI\source\n_chap5\EdgeSLM_Android\.venv\Scripts\python.exe"           # onnx・onnxruntime（書き出し・量子化・端末・演習）
+cd D:\AI\source\n_chap5\EdgeSLM_AndroidVLM
+& $PY2 -B -m app.study.ex01_letterbox_patches
+& $PY2 -B -m app.study.sync_src --check    # 学習の章の各節に載せたソースの枠が最新か（2026-10-17〜）
+```
+
+| venv | 使う道具 |
+|---|---|
+| `$PY1`（MultiHead_Multi） | `ref_vlm`・`check_wiring`・`capture_vit`・`device_vlm eval/uicheck`・`record_demo`（HF の Gemma 4 を動かす・語の番号を作る） |
+| `$PY2`（Android） | `export_vit`・`quantize_vit`・`eval_qdq_vit`・`build_vit_ctx`・`device_vit`・`probe_vit`・`build_t16`・`check_t16`・`setup_vlm_demo`・`device_vlm prep`・演習 |
+
+モデル（Gemma 4 E2B の QAT モバイル版）は EdgeSLM_AndroidGemma4 が取得したものを**読むだけ**で使います（`vlm_common.HF_DIR`）。
+
+## 12.1 全体の地図
+
+```text
+PC                                                                  端末（org.edgeslm.vlm）
+ 評価: fetch_eval_data.py・synth_images.py → work/eval/manifest.json（126 問）、判定 judge.py
+ Phase 1  ref_vlm.py（HF で品質）・check_wiring.py（文章側は無改造で使えるか）・onnx_scales.py（入口の目盛り）
+ Phase 2  vit_graph.py（画像エンコーダを NPU 向けに組み直す）→ export_vit.py → quantize_vit.py（＋qat_inject_vit.py）
+          → build_vit_ctx.py（v68 の context binary）→ device_vit.py（端末で動かす）・probe_vit.py（途中の値で切り分け）
+ Phase 3  setup_vlm_demo.py・device_vlm.py ─────────────── VlmActivity.kt（写真 → vlm_prep.cpp → 画像エンコーダ → 文章側 job.cpp）
+                                                             RunnerHoldActivity.kt（開く間は画面を前に）
+ Phase 5  g4t_graph.py → build_t16.py（16 トークン版）→ check_t16.py・diag_t16.py・probe_t16.py
+```
+
+| 段 | ファイル | 中心の関数・クラス（行） | すること |
+|---|---|---|---|
+| 前処理 | `app/pipeline/hf_vlm.py` | `prepare_image`（<<L app/pipeline/hf_vlm.py | ^def prepare_image>>）・`pixels_fixed_np`（<<L app/pipeline/hf_vlm.py | ^def pixels_fixed_np>>） | 固定の格子に収める（レターボックス）・パッチに並べる |
+| 前処理（端末） | `android_app/app/src/main/cpp/runner/vlm_prep.cpp` | `vlm_pixels`（<<L android_app/app/src/main/cpp/runner/vlm_prep.cpp | ^bool vlm_pixels>>） | 同じことを C++ で（Pillow と同じ縮め方） |
+| 入れ方 | `app/pipeline/hf_vlm.py` | `device_style_embeds`（<<L app/pipeline/hf_vlm.py | ^def device_style_embeds>>） | 画像の位置に特徴、PLE は pad の行 |
+| 検算 | `app/pipeline/check_wiring.py` | `run_one`（<<L app/pipeline/check_wiring.py | ^def run_one>>）・`compare`（<<L app/pipeline/check_wiring.py | ^def compare>>） | 3 つの経路 A・B・C |
+| 目盛り | `app/pipeline/onnx_scales.py` | `read_quant_points`（<<L app/pipeline/onnx_scales.py | ^def read_quant_points>>） | 入口の範囲 |
+| 画像エンコーダ | `app/pipeline/vit_graph.py` | `VitGraph`（<<L app/pipeline/vit_graph.py | ^class VitGraph>>）・`VitLayer`（<<L app/pipeline/vit_graph.py | ^class VitLayer>>） | NPU 向けに組み直した ViT 16 層＋射影層 |
+| 量子化 | `app/pipeline/qat_inject_vit.py` | `_from_float`（<<L app/pipeline/qat_inject_vit.py | ^def _from_float>>）・`inject`（<<L app/pipeline/qat_inject_vit.py | ^def inject\(qdq>>） | QAT の整数・スケールをそのまま書く。C-14 の下限 |
+| 端末 | `app/pipeline/device_vit.py` | `run_job`（<<L app/pipeline/device_vit.py | ^def run_job\(job>>） | job を送って結果を待つ（`hold=True` で画面を前に） |
+| 端末 | `android_app/app/src/main/java/org/edgeslm/demo/RunnerHoldActivity.kt` | `onCreate`（<<L android_app/app/src/main/java/org/edgeslm/demo/RunnerHoldActivity.kt | override fun onCreate>>） | 開く間は画面を前に出す（lmkd に止められない） |
+| 文章側 | `android_app/app/src/main/cpp/runner/job.cpp` | 画像の特徴（<<L android_app/app/src/main/cpp/runner/job.cpp | ★画像の特徴（EdgeSLM_AndroidVLM Phase 3、2026-09-29）>>）・`fill_row`（<<L android_app/app/src/main/cpp/runner/job.cpp | auto fill_row = >>） | 画像の位置に特徴を入れる・16 個ずつ読む |
+| まとめ読み | `app/pipeline/g4t_graph.py` | `layer_forward_t`（<<L app/pipeline/g4t_graph.py | ^def layer_forward_t>>）・`DecodeChunkT`（<<L app/pipeline/g4t_graph.py | ^class DecodeChunkT>>） | 16 トークン版のグラフ |
+| 画面 | `android_app/app/src/main/java/org/edgeslm/demo/VlmActivity.kt` | `readPhoto`（<<L android_app/app/src/main/java/org/edgeslm/demo/VlmActivity.kt | private fun readPhoto>>）・`ask`（<<L android_app/app/src/main/java/org/edgeslm/demo/VlmActivity.kt | private fun ask\(raw>>） | 写真 → 答え |
+
+## 12.2 スマホも GPU も要らない演習（`app/study/`、2026-10-14 に追加）
+
+numpy（と ex01 は PIL）だけで動きます。本物の関数・定数は書き写さず、`app/study/_src.py` がソースから定義だけを取り出して使います。
+
+| 演習 | 確かめること | 関係する章 | 使う本物のソース |
+|---|---|---|---|
+| `ex01_letterbox_patches.py` | 固定の格子・レターボックス（縦長の写真は使える画素が約半分）・パッチの並び・3×3 のプーリング | 2・3・11 | `hf_vlm.prepare_image`・`pixels_fixed_np`・`vlm_common.FIXED_GRIDS`・評価セットの写真 1 枚 |
+| `ex02_vit_rewrites.py` | ×√768 を eps に吸収・プーリングの書き方・2 次元 RoPE は相対位置だけで決まる | 7 | `vlm_common` の定数 |
+| `ex03_entry_range.py` | 端末の文章グラフの入口の範囲 [−7.03, 3.52] を ONNX から読む・Phase 1 の配線の一致 | 4・6 | `onnx_scales.read_quant_points`（本物を動かす）・`results/P1_check_wiring/` |
+| `ex04_c14_scale_floor.py` | C-14（小さすぎる重みのスケール）と下限 1/64 | 8 | `qat_inject_vit._from_float`・`SCALE_FLOOR_RATIO` |
+| `ex05_t16_window.py` | 16 トークン版の窓・マスク・空の行・行の選択。わざと間違えるとどこが崩れるか | 10 | （約束を 2 層の小さな注意で再現） |
+
+```powershell
+& $PY2 -B -m app.study.ex01_letterbox_patches
+& $PY2 -B -m app.study.ex02_vit_rewrites
+& $PY2 -B -m app.study.ex03_entry_range
+& $PY2 -B -m app.study.ex04_c14_scale_floor
+& $PY2 -B -m app.study.ex05_t16_window
+```
+
+## 12.3 章ごとの対応表
+
+### 12.3.1 1 章 VLM の構造・2 章 Gemma 4 の画像の通り道
+
+| 節 | 何をしている所か | ソース（行） | 動かし方 | 結果 |
+|---|---|---|---|---|
+| 1.1・2.5 画像は「表を引かない埋め込み」 | 画像の位置に特徴を入れる | `hf_vlm.device_style_embeds`（<<L app/pipeline/hf_vlm.py | ^def device_style_embeds>>）・端末は `job.cpp` の `fill_row`（<<L android_app/app/src/main/cpp/runner/job.cpp | auto fill_row = >>） | `& $PY1 -m app.pipeline.check_wiring` | `results/P1_check_wiring/` |
+| 2.1 形の変化 | 写真 → 630 パッチ → 70 トークン | `hf_vlm.pixels_fixed_np`・`vit_graph.VitGraph.pool`（<<L app/pipeline/vit_graph.py | def pool\(self, h>>） | 演習 ex01 | — |
+| 2.2 HF の既定（native）は形が変わる | native と fixed の分かれ | `hf_vlm.prepare_image` | `& $PY1 -m app.pipeline.ref_vlm run --prep fixed --budgets 70` | `results/P1_ref_vlm/` |
+| 2.4 プーリングと √768 | ×√768 を eps に吸収 | `vit_graph.VitGraph.__init__` の `eps = qf.eps / C.VISION_HIDDEN`（<<L app/pipeline/vit_graph.py | eps = qf.eps / C.VISION_HIDDEN if fold_pool_scale else qf.eps>>） | 演習 ex02 | — |
+| 2.5 PLE は pad の行・マスクは因果 | 画像の位置の PLE を pad（0）の行で引く | `device_style_embeds` の `ids_pad`・`job.cpp` の `img_pad` | — | — |
+
+### 12.3.2 3 章 NPU に載せるための設計
+
+| 節 | 何をしている所か | ソース（行） | 動かし方 | 結果 |
+|---|---|---|---|---|
+| 3.1 レターボックス | 縦横比を保って縮め、余白を黒で | `hf_vlm.prepare_image`（<<L app/pipeline/hf_vlm.py | ^def prepare_image>>）・`vlm_prep.cpp` の `vlm_pixels` | 演習 ex01・`& $PY2 -m app.pipeline.device_vlm prep`（端末 ↔ PIL のビット一致） | `results/P3_device_vlm/b70_prep.json` |
+| 3.2 画像トークン数と待ち時間 | 格子の表 | `vlm_common.FIXED_GRIDS`（<<L app/pipeline/vlm_common.py | ^FIXED_GRIDS = \{>>） | — | `results/P1_20260928_pc_eval.md` |
+| 3.3 プロセスの分け方 | 画像エンコーダを別プロセス（`:probe`）で開いたまま | `VlmActivity.kt` の `warmVit`（<<L android_app/app/src/main/java/org/edgeslm/demo/VlmActivity.kt | private fun warmVit>>）・`runVit`（<<L android_app/app/src/main/java/org/edgeslm/demo/VlmActivity.kt | private fun runVit>>） | — | — |
+
+### 12.3.3 4 章 量子化の目盛りと画像の特徴・6 章 検算の考え方
+
+| 節 | 何をしている所か | ソース（行） | 動かし方 | 結果 |
+|---|---|---|---|---|
+| 4.2 入口の範囲を ONNX から読む | protobuf を直接たどる | `onnx_scales.read_quant_points`（<<L app/pipeline/onnx_scales.py | ^def read_quant_points>>） | 演習 ex03・`& $PY2 -m app.pipeline.onnx_scales` | — |
+| 4.3・6.4 収まるか・切り詰めの実験 | 入口の範囲で切り詰めて答えを比べる | `check_wiring.entry_clip`（<<L app/pipeline/check_wiring.py | ^def entry_clip>>）・`clip_inputs`（<<L app/pipeline/check_wiring.py | ^def clip_inputs>>） | `& $PY1 -m app.pipeline.check_wiring --srq off` | `results/P1_check_wiring/wiring_b70_srq-off.json` |
+| 6.2 3 つの経路 | A（HF）・B（端末と同じ入れ方を一度に）・C（1 トークンずつ） | `check_wiring.run_one`（<<L app/pipeline/check_wiring.py | ^def run_one>>） | 同上 | 同上 |
+| 6.3 SRQ を外して判定する理由 | SRQ（QAT の 8bit の丸め）を外す | `hf_vlm.disable_srq`（<<L app/pipeline/hf_vlm.py | ^def disable_srq>>） | — | `results/P1_20260928_pc_eval.md` |
+
+### 12.3.4 5 章 評価の組み立て
+
+| 節 | 何をしている所か | ソース（行） | 動かし方 | 結果 |
+|---|---|---|---|---|
+| 5.1 データの選び方 | 公開データを集めて 1 つの一覧に | `fetch_eval_data.py` の `collect_*`（<<L app/pipeline/fetch_eval_data.py | ^def collect_vg>>〜）・`eval_defs.py` | `& $PY1 -m app.pipeline.fetch_eval_data` | `work/eval/manifest.json` |
+| 5.2・5.3 自動判定とその罠 | 表記をそろえて正解の語を探す | `judge.normalize`（<<L app/pipeline/judge.py | ^def normalize>>）・`judge_keywords`（<<L app/pipeline/judge.py | ^def judge_keywords>>）・`answer_to_keywords`（<<L app/pipeline/judge.py | ^def answer_to_keywords>>） | `& $PY1 -m app.pipeline.judge`（自己テスト） | — |
+| 5.4 合成画像 | 文字・画面・文書の画像を作る | `synth_images.render`（<<L app/pipeline/synth_images.py | ^def render\(spec>>） | — | `work/eval/images/synth/` |
+| 品質の集計 | 126 問を HF で解いて表に | `ref_vlm.run`（<<L app/pipeline/ref_vlm.py | ^def run\(a\)>>）・`report` | `& $PY1 -m app.pipeline.ref_vlm report` | `results/P1_ref_vlm/summary.md` |
+
+### 12.3.5 7 章 画像エンコーダを書き直す
+
+| 節 | 何をしている所か | ソース（行） | 動かし方 | 結果 |
+|---|---|---|---|---|
+| 7.2 位置を定数に | 位置の表・2 次元 RoPE の cos/sin をバッファに | `VitGraph.__init__` の `register_buffer("pos_emb"`（<<L app/pipeline/vit_graph.py | self.register_buffer\("pos_emb">>）・`rope2d_tables`（<<L app/pipeline/vit_graph.py | ^def rope2d_tables>>） | 演習 ex02 | — |
+| 7.3 プーリングを reshape と平均で | | `VitGraph.pool`（<<L app/pipeline/vit_graph.py | def pool\(self, h>>） | 演習 ex01・ex02 | — |
+| 7.4 ×√768 を消す | | `fold_pool_scale` | 演習 ex02 | — |
+| 7.6・7.7 確かめ方 | 自前の配線 ↔ HF | `export_vit.check`（<<L app/pipeline/export_vit.py | ^def check\(a\)>>） | `& $PY2 -m app.pipeline.export_vit check` | `results/P2_vit_export/b70_21x30_check.json` |
+| 7.8 SRQ への敏感さ | SRQ の丸め | `vit_graph.apply_srq`（<<L app/pipeline/vit_graph.py | ^def apply_srq>>） | `& $PY2 -m app.pipeline.export_vit check` | `results/P2_20260928_vit_export.md` |
+| 7.9 量子化 | 量子化 → QAT の値を書く → C-8 | `quantize_vit.main`（<<L app/pipeline/quantize_vit.py | ^def main\(\)>>）・`qat_inject_vit.inject` | `& $PY2 -m app.pipeline.quantize_vit`・`& $PY2 -m app.pipeline.eval_qdq_vit acc` | `results/P2_vit_quant/` |
+| 7.10 変換 | v68 の context binary | `build_vit_ctx.build_one`（<<L app/pipeline/build_vit_ctx.py | ^def build_one>>） | `& $PY2 -m app.pipeline.build_vit_ctx` | `results/P2_20260929_vit_ctx.md` |
+
+### 12.3.6 8 章 端末でだけ壊れる
+
+| 節 | 何をしている所か | ソース（行） | 動かし方 | 結果 |
+|---|---|---|---|---|
+| 8.2 途中の値を出力に足す | 探り用のグラフ | `probe_vit.make_probe`（<<L app/pipeline/probe_vit.py | ^def make_probe>>）・`cmd_device`（<<L app/pipeline/probe_vit.py | ^def cmd_device>>） | `& $PY2 -m app.pipeline.probe_vit build --layers 2`・`device --layers 2` | `results/P2_vit_device/probe_b70_21x30_device.json` |
+| 8.4・8.5 小さすぎるスケール（C-14）と直し方 | スケールの下限 | `qat_inject_vit.SCALE_FLOOR_RATIO`（<<L app/pipeline/qat_inject_vit.py | ^SCALE_FLOOR_RATIO = >>）・`_from_float`・`scale_ratio_report`（<<L app/pipeline/qat_inject_vit.py | ^def scale_ratio_report>>） | 演習 ex04 | `results/P2_20260929_vit_device.md` |
+
+### 12.3.7 9 章 端末でつなぐ
+
+| 節 | 何をしている所か | ソース（行） | 動かし方 | 結果 |
+|---|---|---|---|---|
+| 9.4 開く間は画面を前に | 画面を消さない・ロックの上に出す | `RunnerHoldActivity.kt`（<<L android_app/app/src/main/java/org/edgeslm/demo/RunnerHoldActivity.kt | override fun onCreate>>）・`device_vit.run_job(…, hold=True)` | `& $PY1 -m app.pipeline.device_vlm holdcheck` | `results/P3_device_vlm/b70_holdcheck_hold.json` |
+| 9.5 見張り方 | プロセスが消えたら待たずに止める・logcat を残す | `device_vit.run_job`（<<L app/pipeline/device_vit.py | ^def run_job\(job>>）・`save_logcat`（<<L app/pipeline/device_vit.py | ^def save_logcat>>） | — | `results/P2_vit_device/*_died_logcat.txt` |
+| 9.6 端末だけで解いた品質 | 端末で 126 問 | `device_vlm.cmd_eval`（<<L app/pipeline/device_vlm.py | ^def cmd_eval>>） | `& $PY1 -m app.pipeline.device_vlm eval` | `results/P3_device_vlm/b70_eval.json` |
+
+### 12.3.8 10 章 まとめ読み・11 章 写真から答えまで
+
+| 節 | 何をしている所か | ソース（行） | 動かし方 | 結果 |
+|---|---|---|---|---|
+| 10.4 グラフの約束 | 窓・マスク・空の行・行の選択 | `g4t_graph.layer_forward_t`（<<L app/pipeline/g4t_graph.py | ^def layer_forward_t>>）・`DecodeChunkT.forward`（<<L app/pipeline/g4t_graph.py | def forward\(self, x0, ple_in=None>>） | 演習 ex05 | — |
+| 10.5 端末の C++ | 16 個ずつ読み、1 個ずつ作る | `job.cpp` の「プロンプトを Tm 個ずつ読む」（<<L android_app/app/src/main/cpp/runner/job.cpp | ---- プロンプトを Tm 個ずつ読む>>） | — | — |
+| 10.6 3 段の確かめ方 | PC の CPU で 1 トークン版・HF と比べる | `check_t16.main`（<<L app/pipeline/check_t16.py | ^def main\(\)>>） | `& $PY2 -m app.pipeline.check_t16` | `results/P5_20261003_t16_accuracy.md` |
+| 10.7 HF との一致が下がった理由の切り分け | 同じ入力を NPU と CPU に・層 0 だけの小さいグラフ | `diag_t16.py`・`probe_t16.py`・`probe_l0.py`・`probe_fix.py` | — | 同上 |
+| 10.9 画像エンコーダを開いたまま | `keep_session` | `VlmActivity.kt` の `warmVit` | — | — |
+| 11 章 全体の流れ | 写真 → 答え | `VlmActivity.kt` の `readPhoto` → `runVit` → `ask` | `& $PY1 -m app.pipeline.device_vlm uicheck` | `results/P3_device_vlm/b70_uicheck_car_01a.json` |
+
+## 12.4 一番大事なこと（StudyMemo.md の 1〜20）とソース
+
+| # | 一番大事なこと（短く） | ソース・演習 |
+|---|---|---|
+| 1・2 | 画像は外から渡す埋め込み。「射影層を足すだけ」が成り立つ条件 | `hf_vlm.device_style_embeds`・13.2 節 |
+| 3 | 端末では形を固定する | `hf_vlm.prepare_image`・演習 ex01 |
+| 4・9 | 待ち時間はトークン数にほぼ比例・70 と 280 で品質が違う | `vlm_common.FIXED_GRIDS`・`ref_vlm.py` |
+| 5・8 | 目盛りは較正したデータの範囲しか表せない・文章側は無改造で使える | `onnx_scales.py`・`check_wiring.py`・演習 ex03 |
+| 6 | 自動判定の甘さと厳しさ | `judge.py`（VLMSpec の StudyMemo 6.2 節にも抜き出しと解説） |
+| 7・10・11 | 丸めを外して比べる・SRQ の揺れ | `check_wiring.py`・`hf_vlm.disable_srq`・`vit_graph.apply_srq` |
+| 12・13 | 画像エンコーダの量子化と変換 | `quantize_vit.py`・`qat_inject_vit.py`・`build_vit_ctx.py` |
+| 14 | 端末でだけ壊れる（C-14） | `probe_vit.py`・`qat_inject_vit._from_float`・演習 ex04 |
+| 15・16 | 端末だけの品質・開く間は画面を前に | `device_vlm.py`・`RunnerHoldActivity.kt` |
+| 17・18 | まとめ読み・基準を取ってから比べる | `g4t_graph.py`・`check_t16.py`・`diag_t16.py`・演習 ex05 |
+| 19 | system 文 1 行 | `device_vlm.py` の `--system`（VLMSpec でも同じ評価） |
+| 20 | いまの時間の内訳 | `VlmActivity.kt`・`results/P3_device_vlm/b70_uicheck_*.json` |
+
+## 12.5 この章で行番号を引いたファイルの版
+
+<<MD5_TABLE>>

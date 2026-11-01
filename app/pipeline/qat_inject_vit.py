@@ -28,6 +28,14 @@ EdgeSLM_AndroidGemma4 の `qat_inject.py`（md5 42b99bb8…）を複製し、**�
 - **SRQ なしの版**: 揺れが無いので、量子化と NPU の算術の誤差だけを HF（SRQ なし）と比べて測れる
 - **SRQ ありの版**: 学習時の形に近い。行列積の入力が 8bit になるので NPU で速い可能性がある
 の両方を作り、変換のしやすさ・速さ・答えの品質で端末の版を選ぶ。
+
+## 使う段・結果
+
+- Phase 2-2 の量子化（quantize_vit が inject・vit_linears・scale_ratio_report を呼ぶ。単体でも動かせる）。StudyMemo 7.9 節・8.4〜8.5 節
+- 2026-09-28: 114 本を書き込み全部 INT8 に、QAT の 112 本は整数・スケールとも QAT と完全一致。作り直した 2 本の誤差は
+  パッチの埋め込み 0.98%・射影層 1.10%。SRQ は入力側 112・出力側 112（results/P2_20260928_vit_quant.md）
+- 2026-09-29: 端末で C-14 を見つけ、スケールの下限（下の注記）を足して作り直した（results/P2_20260929_vit_device.md）
+- 出力: `--out` の ONNX と、同じ名前の `.inject.json`（対応表・書き込みの数・誤差・下限に上げたチャネルの数）
 """
 from __future__ import annotations
 
@@ -42,6 +50,7 @@ from onnx import TensorProto, helper, numpy_helper
 from app.pipeline import vlm_common as C
 
 
+# 画像エンコーダの重みは全部 INT8 になるので、ここでは使われない（Gemma4 から複製した書き込みの手順の名残。4bit の重みが来たときの経路）
 def pack_int4(vals: np.ndarray) -> bytes:
     """ONNX の INT4（符号付き）: 2 つを 1 バイトに、下位 4 ビットが先。（Gemma4 の qat_inject と同じ）"""
     v = (vals.astype(np.int8).reshape(-1) & 0x0F).astype(np.uint8)
@@ -65,6 +74,8 @@ def _from_float(w: np.ndarray) -> dict:
 
     スケールには下限（最大のチャネルの SCALE_FLOOR_RATIO 倍）を付ける（C-14。上の注記）。
     """
+    # ① 出力チャネル（行）ごとの絶対値の最大 ÷ 127 を仮のスケールにする（対称なので零点は 0）
+    # ② 最大のチャネルの 1/64 より小さいスケールは下限まで上げる（C-14）。③ 整数に丸めて −127〜127 に収める
     raw = np.maximum(np.abs(w).max(axis=1), 1e-12) / 127.0
     floor = raw.max() * SCALE_FLOOR_RATIO
     s = np.maximum(raw, floor)
@@ -79,6 +90,7 @@ def vit_linears() -> dict:
 
     vit_graph.QatFile と同じ読み方（配線の確認に使ったのと同じ値）。
     """
+    # QAT の 112 本は整数・スケール・活性の目盛りをそのまま、QAT でない 2 本（パッチの埋め込み・射影層）は _from_float で作り直す
     from app.pipeline.vit_graph import PFX, QatFile
     qf = QatFile()
     out = {}
@@ -95,12 +107,19 @@ def vit_linears() -> dict:
     return out
 
 
+# 活性の丸めの Q/DQ の (スケール, 零点)。uint8 で零点 128 にすると、int8 対称（−128〜127）と同じ並びの目盛りになる。
 def _u8_qdq(scale: float):
     return np.float32(scale), np.uint8(128)          # QAT の int8 対称（−128〜127）と同じ格子
 
 
 def inject(qdq: Path, prepped: Path, lin: dict, out: Path, srq: bool = True) -> dict:
-    """（Gemma4 の qat_inject.inject と同じ手順。重みの一覧 lin を引数で受け取るようにした）"""
+    """（Gemma4 の qat_inject.inject と同じ手順。重みの一覧 lin を引数で受け取るようにした）
+
+    引数: qdq = p2b_ops が作った QDQ の ONNX、prepped = 前処理の後の float の ONNX（重みの値の照合に使う）、
+    lin = vit_linears の戻り値、out = 書き込んだ ONNX の出力先、srq = 活性の 8bit の丸めを入れるか。
+    戻り値: 書き込みの記録（.inject.json にも書く）。照合できない重み・検査の不一致・INT4 の残りがあれば止まる。
+    """
+    # ① 照合の準備: QAT の重みを形ごとに分けておき、QDQ の中の「値の名前 → 使う演算」の表を作る
     by_shape: dict = {}
     for nm, d in lin.items():
         by_shape.setdefault(tuple(d["w"].T.shape), []).append(nm)
@@ -117,6 +136,7 @@ def inject(qdq: Path, prepped: Path, lin: dict, out: Path, srq: bool = True) -> 
     mapping, written, retyped, srq_in, srq_out = {}, 0, 0, 0, 0
     new_nodes: list[tuple[int, list]] = []          # (MatMul の位置, 前に入れるノード)
     wt_cache: dict = {}                              # 同じ形の候補が多い（768×768 が 65 本）ので転置を使い回す
+    # ② INT4 の重みの DQ を 1 つずつ見て、prepped の元の float の重みと値が完全一致する QAT の重みを探す（形が同じ候補の中から 1 つだけ）
     for nd in list(g.node):
         if nd.op_type != "DequantizeLinear" or nd.input[0] not in q_inits:
             continue
@@ -138,6 +158,7 @@ def inject(qdq: Path, prepped: Path, lin: dict, out: Path, srq: bool = True) -> 
             raise SystemExit(f"{base}: QAT の重みと一意に対応しない（候補 {cands}、形 {list(wf.shape)}）")
         nm = cands[0]
         d = lin[nm]
+        # ③ 見つかったら、整数（[in, out] に転置）・スケール・零点（0）を書き込み、8bit なら型を INT8 に替える
         codes = d["codes"].T.copy()                                    # [in, out]
         x.ClearField("raw_data"); x.ClearField("int32_data")
         if d["bits"] == 8:
@@ -163,6 +184,7 @@ def inject(qdq: Path, prepped: Path, lin: dict, out: Path, srq: bool = True) -> 
         # ---- 活性の 8bit の丸め（SRQ）。QAT でない重み（in_act が無い）には掛けない ----
         if not srq or not d.get("in_act"):
             continue
+        # ④ この重みを使う MatMul の出力の Q/DQ を QAT の出力の目盛り（uint8）に書き換え、入力の手前に QAT の入力の目盛りの Q/DQ を入れる
         mm = next((c for c in cons.get(nd.output[0], []) if c.op_type == "MatMul"), None)
         if mm is None:
             raise SystemExit(f"{base}: 重みを使う MatMul が見つからない")
@@ -183,6 +205,7 @@ def inject(qdq: Path, prepped: Path, lin: dict, out: Path, srq: bool = True) -> 
         new_nodes.append((list(g.node).index(mm), [qn, dn]))
         srq_in += 1
 
+    # ⑤ 足した Q/DQ を MatMul の直前に入れる（後ろの位置から入れると、前の位置の番号がずれない）
     if new_nodes:
         nodes = list(g.node)
         for idx, extra in sorted(new_nodes, key=lambda t: -t[0]):
@@ -211,6 +234,7 @@ def inject(qdq: Path, prepped: Path, lin: dict, out: Path, srq: bool = True) -> 
                 bad.append(base)
         elif not np.array_equal(deq, wf):
             bad.append(base)
+    # ONNX の形式の検査（2GB 以上は checker が扱えないので飛ばす）。INT4 が残っていないことも数える
     onnx.checker.check_model(chk) if chk.ByteSize() < 2**31 else None
     remaining_int4 = sum(1 for t in chk.graph.initializer if t.data_type == TensorProto.INT4)
     info = {"qdq_in": str(qdq), "qdq_out": str(out), "srq": srq, "written": written, "retyped_int8": retyped,
@@ -240,6 +264,7 @@ def scale_ratio_report(path: Path) -> dict:
     本当の条件は「入力のスケール × 重みのスケール ÷ 出力のスケール」が小さすぎないことだが、同じ行列の中では入力・出力の
     スケールは 1 つなので、チャネルどうしの比で「1 本だけ極端に小さい」ものは見つけられる。SCALE_FLOOR_RATIO 未満なら注意。
     """
+    # 引数: path = 量子化済みの ONNX。戻り値: {"n_weights": 見た重みの数, "min_ratio": いちばん小さい比, "min_ratio_tensor", "ok"}
     m = onnx.load(str(path))
     inits = {t.name: t for t in m.graph.initializer}
     worst, n = None, 0
@@ -257,6 +282,7 @@ def scale_ratio_report(path: Path) -> dict:
             "ok": bool(worst is None or worst[1] >= SCALE_FLOOR_RATIO * 0.999)}
 
 
+# 単体で動かすときの入口（ふつうは quantize_vit から呼ぶ）。
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--qdq", type=Path, required=True)

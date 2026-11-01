@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 """Phase 2: かたまりごとに量子化した QDQ を、1つのグラフに繋ぐ。
 
-    python -m app.pipeline.merge_chunks --chunks g4c0_8h_L256,g4c9_17_L256,... --out work/ops/g4full_L256/g4full_final_qdq.onnx
+    python -m app.pipeline.merge_chunks --chunks work/ops/g4c0_8h_L256/g4c0_8h_L256_final_qdq.onnx,work/ops/g4c9_17_L256/g4c9_17_L256_final_qdq.onnx,... --out work/ops/g4full_L256/g4full_L256_final_qdq.onnx
+
+（★2026-10-18 訂正: 旧「--chunks g4c0_8h_L256,g4c9_17_L256,... --out work/ops/g4full_L256/g4full_final_qdq.onnx」。
+--chunks にはかたまりの名前ではなく QDQ のファイルのパスを並べる（main は各要素をそのまま Path にして読む）。
+build_full.py も work/ops/<名前>/<名前>_final_qdq.onnx を A〜E・出力層の順に並べ、出力を g4full_L<L>_final_qdq.onnx にして呼んでいる）
 
 なぜ分けて作るか: 35層を一度に浮動小数で広げると PC のメモリが 9GB を超える（量子化ではさらに要る）。
 かたまりごとなら 2〜3GB で済む。**端末に載せるのは1つのグラフ**（セッションも1つ）なので、量子化の後に繋ぐ。
@@ -11,6 +15,10 @@
 - 共通の入力（cos_s / sin_s / cos_g / sin_g / attn_mask）は、後ろのかたまり側を前のかたまりの入力に付け替えて1本にする
 - 名前の衝突は接頭辞で避ける（`onnx.compose.add_prefix`）
 - 境目は「前の DQ → 次の Q」。スケールはかたまりごとの較正で少し違うが、量子化し直すだけで害はない
+
+（2026-10-18 追記）出力: 1 つの QDQ の ONNX（1.8GB を超えるなら重みは同じ名前の .data に分ける）。merge の戻り値に
+繋ぎの対応・付け替えた入力・外した出力・名前を戻した入出力が入る。解説は StudyMemo（EdgeSLM_AndroidGemma4）03 の 3.3「繋ぐときの決まり」。
+EdgeSLM_AndroidVLM・EdgeSLM_AndroidGemma4Head へは変えずに複製してある。
 """
 from __future__ import annotations
 
@@ -20,12 +28,14 @@ from pathlib import Path
 import onnx
 from onnx import compose
 
+# どのかたまりも同じ値を受け取る入力。繋いだ後は 1 本にまとめる（端末は 1 回だけ渡せばよい）
 SHARED_INPUTS = ["cos_s", "sin_s", "cos_g", "sin_g", "attn_mask"]
 
 
 def rewire_shared(model: onnx.ModelProto, prefix: str) -> list[str]:
     """接頭辞つきの共通入力を、接頭辞なしの入力へ付け替えて、グラフ入力から消す。"""
     g = model.graph
+    # 接頭辞つき（後ろのかたまりの入力）→ 接頭辞なし（前のかたまりの入力）。両方がグラフ入力にあるものだけ付け替える
     names = {f"{prefix}{nm}": nm for nm in SHARED_INPUTS}
     have = {v.name for v in g.input}
     done = []
@@ -58,6 +68,7 @@ def strip_prefix_io(model: onnx.ModelProto) -> list[tuple[str, str]]:
     taken |= {t.name for t in g.initializer}
     for n in g.node:
         taken |= set(n.input) | set(n.output)
+    # 「c<番号>_」で始まる入出力だけ、外した名前がまだ使われていなければ付け替える
     renames = []
     for coll in (g.input, g.output):
         for v in coll:
@@ -78,6 +89,7 @@ def strip_prefix_io(model: onnx.ModelProto) -> list[tuple[str, str]]:
         for i, o in enumerate(n.output):
             if o in ren:
                 n.output[i] = ren[o]
+    # グラフ入出力と形の情報（value_info）の名前も同じように替える
     for coll in (g.input, g.output, g.value_info):
         for v in coll:
             if v.name in ren:
@@ -100,6 +112,13 @@ def drop_outputs(model: onnx.ModelProto, names: list[str]) -> list[str]:
 
 
 def merge(chunks: list[Path], out: Path, drop: list[str] | None = None) -> dict:
+    """chunks（繋ぐ順の QDQ のファイル）を前から 1 つずつ繋ぎ、out に保存する。
+
+    段: ① 1 つめを読む → ② 2 つめ以降は名前に「c<番号>_」を付けて衝突を避け、繋ぎの対応（io_map）を作る
+        （hidden_out → hidden_in、ple_all → ple_all、層 13・14 の present → shared）→ ③ compose.merge_models で繋ぎ、
+        共通の入力を 1 本にする → ④ 繋ぎ用に残した出力を外し、入出力の名前から接頭辞を外して保存
+    drop: 最後にグラフ出力から外す名前（既定 ple_all）。戻り値は記録用の dict。
+    """
     merged = onnx.load(str(chunks[0]))
     info = {"chunks": [str(chunks[0])], "rewired": [], "io_maps": []}
     for k, p in enumerate(chunks[1:], start=1):
@@ -139,6 +158,7 @@ def merge(chunks: list[Path], out: Path, drop: list[str] | None = None) -> dict:
         info["io_maps"].append(io_map)
         info["rewired"].append(done)
         print(f"  + {p.name}: 繋ぎ {io_map}、共通入力を付け替え {len(done)} 本")
+    # ④ 仕上げ: 繋ぎ用の出力を外す → 接頭辞を外す → 保存（protobuf の 2GB の上限の手前 1.8GB を超えたら重みを外のファイルへ）
     gone = drop_outputs(merged, drop or [])
     if gone:
         print(f"  繋ぎのために残していた出力を外した: {gone}")
@@ -161,6 +181,7 @@ def merge(chunks: list[Path], out: Path, drop: list[str] | None = None) -> dict:
 
 
 def main():
+    """引数を読み、merge を呼ぶ（--chunks はカンマ区切りのファイルのパス、--drop はカンマ区切りの出力の名前）。"""
     ap = argparse.ArgumentParser()
     ap.add_argument("--chunks", required=True, help="繋ぐ順に、QDQ のファイル（カンマ区切り）")
     ap.add_argument("--out", type=Path, required=True)

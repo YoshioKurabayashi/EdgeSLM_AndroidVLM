@@ -48,6 +48,15 @@
 - `--decode-all`: 選んだ全部の問題で `--decode` トークン先まで作る。直した版（t16f）で増えた「画像が提供されていません」という答えが、
   PC の CPU だけで解かせても出るか（＝グラフの性質か、NPU での計算のせいか）を見るため
 - 結果は `diag_t16_<種類>.json`、`--decode-all` のときは `…_dec.json` に分ける（元の記録を上書きしない）
+
+## 結果と、その後の訂正（StudyMemo 10.7 節）
+
+- 2026-09-30（1 段目）: PC の CPU で動かした同じグラフは HF とほとんど同じ答えを出し、文字も読めた（「新宿駅西口」「営業中」）。
+  端末だけが離れていた → このときは「原因は B（端末での実行）」と読み、probe_t16（2 段目）に進んだ
+- ★2026-10-18 追記: この読みは 2026-10-03 の 7 段目で取り消した。PC の CPU も画像の行では正規化の途中の目盛りが切れていて正しくない
+  （文章だけで較正した目盛りを画像の行がはみ出す）。答えの 1 トークン目は半分が「画像」で始まるので、一致の数だけでは CPU が正しいとは言えない。
+  上の「見るもの」の読み方（PC(16) が HF に近ければ B を疑う）は、PC の CPU が正しいことを前提にしている点に注意
+- 決定（2026-10-03）: 文章側は元の 16 トークン版で確定（`results/P5_20261003_t16_accuracy.md`）
 """
 from __future__ import annotations
 
@@ -61,6 +70,8 @@ import numpy as np
 from app.pipeline import gemma4_common as G
 from app.pipeline import vlm_common as C
 
+# 端末の C++ と同じ定数。IMG・BOI・EOI は画像のトークン・画像の始まり・終わりの ID（vlm_common と同じ値）、PAD は PLE を引く行。
+# STOP は答えを止める ID（vlm_common.STOP_IDS と同じ 3 つ）。マスクの −60 は「ほぼ −∞」（−3.4e38 は 16bit に量子化できない。C-9）
 T = 16                       # 1 回に入れる行
 W = 256                      # 注意の窓
 P = W - T                    # past のスロット数（240）
@@ -81,6 +92,7 @@ def model_qdq(model: str) -> Path:
     """種類 → PC の CPU で動かす量子化済みグラフ"""
     n = T16_GRAPHS[model]
     return C.WORK / "ops" / n / f"{n}_final_qdq.onnx"
+# 読む場所: 埋め込み・PLE・位置の表（Gemma4 のもの）、評価の job と端末に送った画像の特徴、評価の結果、この道具の結果
 TABLES = G.G4_TABLES
 JOBS = C.WORK / "device_vit"
 FEATS = C.WORK / "device_vlm" / "feats"
@@ -96,8 +108,12 @@ RESULT_FILES = {
 # ---------------------------------------------------------------------------
 # 表（端末の C++ と同じ読み方）
 # ---------------------------------------------------------------------------
+# 端末の C++ と同じ読み方で、埋め込み（2bit）・PLE（4bit）・RoPE の表を読む。大きな表は memmap で必要な行だけ読む。
+# tables.json に表のファイル名・行と列の数・スケールのファイル・倍率（埋め込みは √1536、PLE は 16）が書いてある。
 class Tables:
     def __init__(self, d: Path):
+        # d = 表の置き場（Gemma4 の work/tables/）。tables.json から、埋め込み（2bit）・PLE（4bit）の表とスケール、
+        # RoPE の表（局所・全体）の名前と形を読む。大きな表は memmap（触った行だけ読む）
         meta = json.loads((d / "tables.json").read_text(encoding="utf-8"))
         e, p, r = meta["embed"], meta["ple"], meta["rope"]
         self.H = e["cols"]
@@ -127,8 +143,12 @@ class Tables:
 # ---------------------------------------------------------------------------
 # 16 トークン版を CPU で動かす（C++ の複数トークンの経路と同じ手順）
 # ---------------------------------------------------------------------------
+# 16 トークン版の量子化済みグラフを PC の ORT（CPU）で動かし、端末の C++ の複数トークンの経路と同じ手順で past を進める。
+# past は層ごとに [1,1,240,hd]、n_valid は past の有効な数（右詰め）、abs_pos は次に入れるトークンの位置（RoPE の表の行）。
 class Runner16:
     def __init__(self, path: Path, tabs: Tables):
+        # path = 16 トークン版の量子化済みグラフ。ORT の CPU（最適化は basic）で開き、past_* を層の順に並べて、
+        # 対になる present_* の出力番号と logits の出力番号を覚える
         import onnxruntime as ort
         so = ort.SessionOptions()
         so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
@@ -143,6 +163,7 @@ class Runner16:
         self.li = self.outs.index("logits")
         self.reset()
 
+    # 新しい問題の前に past を 0、有効な数と位置を 0 に戻す
     def reset(self):
         self.past = {n: np.zeros(self.ins[n], np.float32) for n in self.kv}
         self.n_valid = 0
@@ -150,6 +171,7 @@ class Runner16:
 
     def run(self, rows: list[tuple[int, np.ndarray | None]]) -> np.ndarray:
         """rows: 本物の行 n 個（ID と、画像の位置なら特徴の 1 行）。選んだ最後の本物の行の logits を返し、past と位置を進める"""
+        # ① 本物の行の入力を作る（文字は表から、画像の位置は特徴の 1 行。PLE は pad の行）。空の行は 0 のまま
         tb, n = self.tabs, len(rows)
         emb = np.zeros((1, T, tb.H), np.float32)
         ple = np.zeros((1, T, tb.L, tb.D), np.float32)
@@ -169,6 +191,7 @@ class Runner16:
         for r in range(n, T):                          # 空の行: 位置は最後の本物の行と同じ
             for k, v in tb.rope.items():
                 rope[k][0, r, 0] = v[pos_last]
+        # ② 行ごとのマスク（past の有効な右端 nv 個と、この回の 0〜r 行目を開ける）と、最後の本物の行を選ぶ logit_sel
         mask = np.full((1, T, 1, W), MASK_NEG, np.float32)
         nv = min(self.n_valid, P)
         for r in range(T):
@@ -179,6 +202,7 @@ class Runner16:
         sel[0, n - 1, 0] = 1.0
         feed = {"inputs_embeds": emb, "ple_tok": ple, "attn_mask": mask, "logit_sel": sel, **rope, **self.past}
         feed = {k: v for k, v in feed.items() if k in self.ins}
+        # ③ 1 回流して、past を進める。present の新しい行は「後ろから 16 行目」から始まる（層 13・14 は窓全体 256 行、ほかは 16 行の形）
         out = self.s.run(None, feed)
         for name in self.kv:                           # past を n 個左へずらし、新しい行を右端に
             pr = out[self.out_of[name]]
@@ -208,6 +232,7 @@ def load_items() -> dict:
     return items
 
 
+# 前の system 文の頭（23 個）＋画像の始まり＋画像 70 個＋画像の終わり＋質問の部分、で評価と同じ ID の並びを作る（画像まわりで 72 個）
 def old_prompt(tail: list[int]) -> list[int]:
     return OLD_HEAD + [BOI] + [IMG] * 70 + [EOI] + tail
 
@@ -225,6 +250,8 @@ def load_results(model: str = "t16") -> dict:
     return out
 
 
+# 調べる問題を選ぶ: 文字を読み違えた 2 問＋「端末(16)と HF の 1 トークン目が違う」問題から n_mis 問＋「同じ」問題から n_match 問（対照）。
+# どちらも等間隔に選ぶ（乱数を使わない）。--items で直接指定したときはそれだけ。
 def pick(items: dict, res: dict, n_mis: int, n_match: int, explicit: list[str]) -> list[str]:
     if explicit:
         return explicit
@@ -235,6 +262,7 @@ def pick(items: dict, res: dict, n_mis: int, n_match: int, explicit: list[str]) 
     return OCR_ITEMS + take(mis, n_mis) + take(mat, n_match)
 
 
+# 2 つの ID の並びが頭から何個同じか（読み違える所を見つけるため）。
 def prefix_len(a: list[int], b: list[int]) -> int:
     k = 0
     while k < min(len(a), len(b)) and a[k] == b[k]:
@@ -243,6 +271,7 @@ def prefix_len(a: list[int], b: list[int]) -> int:
 
 
 def main():
+    """選んだ問題を 1 問ずつ PC の CPU で解き、端末(16)・端末(1)・HF の答えと 1 トークン目と続きを比べる。1 問ごとに結果を書き足す。"""
     ap = argparse.ArgumentParser()
     ap.add_argument("--n-mis", type=int, default=10, help="端末(16)と HF の 1 トークン目が違った問題から選ぶ数")
     ap.add_argument("--n-match", type=int, default=4, help="同じだった問題から選ぶ数（比べるための対照）")
@@ -274,6 +303,7 @@ def main():
         if iid in done:
             continue
         it = items[iid]
+        # ① プロンプトを作り直し、長さが評価の記録と同じか・画像の特徴が 70 行かを確かめる（違えば比べる意味がないので止める）
         ids = old_prompt(it["tail"])
         plen = res["dev16"][iid]["prompt_len"]
         if len(ids) != plen:
@@ -285,6 +315,7 @@ def main():
         run16.reset()
         img_next = 0
         logits = None
+        # ② 16 個ずつ読む。最後の回の logits が答えの 1 つ目
         for c in range(0, len(ids), T):
             chunk = []
             for tid in ids[c:c + T]:
@@ -296,6 +327,7 @@ def main():
             logits = run16.run(chunk)
         top = np.argsort(-logits)[:5]
         gen = [int(top[0])]
+        # ③ 文字の 2 問（と --decode-all のとき）は、1 個ずつ（本物 1 行＋空 15 行）答えの続きを作る
         n_dec = a.decode if (iid in OCR_ITEMS or a.decode_all) else 0
         while len(gen) < 1 + n_dec and gen[-1] not in STOP:
             lg = run16.run([(gen[-1], None)])
@@ -322,6 +354,7 @@ def main():
         RES.mkdir(parents=True, exist_ok=True)
         C.write_json_atomic(out_path, {"model": str(qdq), "rows": rows})
 
+    # ④ 1 トークン目の一致の数と、1 位と 2 位の logit の差（接戦かどうか）の中央値をまとめる
     # ---- まとめ ----
     n = len(rows)
     agree = lambda f: sum(1 for r in rows if f(r))

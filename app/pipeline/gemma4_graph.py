@@ -25,6 +25,17 @@ PC のメモリを食わず、HF の実装とは独立に書いた配線を HF �
 - cos/sin は PC で作って入力で渡す。局所の層 [1,1,1,256]、全体の層 [1,1,1,512]（p-RoPE。回さない次元は cos=1・sin=0）
 - **MQA**: KV は1本なので、Q の8ヘッドを8行に並べて1回の MatMul にする（[1,1,8,hd] @ [1,1,hd,L]）。KV を8本へ複製しない
 - L ≤ 512（局所の窓）なら、局所と全体の層でマスクを分けなくてよい
+
+## 大きさ（config.json の text_config。2026-10-18 追記）
+
+hidden 1536・層 35（局所 sliding と全体 full が 4:1 で並ぶ。層 4・9・14… が全体）・Q のヘッド 8・KV のヘッド 1・
+head_dim 256（全体の層は 512）・MLP 6144（KV を使い回す層 15〜34 は倍の 12288）・PLE 256・語彙 262144・局所の窓 512。
+
+## 使い方（2026-10-18 追記）
+
+直接は動かさない。export_small（Phase 0-D、DecodeLayers）・export_chunk（Phase 1〜2、DecodeChunk）・qat_inject（重み）・
+gen_pc（rope_tables）などが import する。解説は StudyMemo（EdgeSLM_AndroidGemma4）01「Gemma4E2B のつくり」・
+02「QAT の丸めを端末で再現する」・03「35 層をかたまりで作って繋ぐ」。
 """
 from __future__ import annotations
 
@@ -36,27 +47,35 @@ from safetensors import safe_open
 
 from app.pipeline import gemma4_common as G
 
-MASK_NEG = -60.0
+MASK_NEG = -60.0                   # 空きスロットを塞ぐ値（Qwen と同じ。exp(−60) ≒ 0。C-9: −inf は量子化できない）
+# safetensors の中のテキスト部分の重みの名前の頭（画像・音声の部品は別の頭）
 PFX = "model.language_model."
 GELU_C = 0.7978845608028654        # sqrt(2/pi)
 
 
 def gelu_tanh(x: torch.Tensor) -> torch.Tensor:
+    """GELU の tanh 近似: 0.5·x·(1 + tanh(√(2/π)·(x + 0.044715·x³)))。Gemma の MLP と PLE の門で使う。"""
     # ★Pow を使わない（前処理の RMSNorm の見分けが「Pow(x,2) → ReduceMean」を探すため、紛れないように）
     return 0.5 * x * (1.0 + torch.tanh(GELU_C * (x + 0.044715 * x * x * x)))
 
 
 def rotate_half(x: torch.Tensor) -> torch.Tensor:
+    """最後の軸を前半・後半に分け、[−後半, 前半] に並べ替える（HF の rotate_half と同じ）。"""
     half = x.shape[-1] // 2
     return torch.cat((-x[..., half:], x[..., :half]), dim=-1)
 
 
 def rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+    """RoPE（回転位置埋め込み）: x·cos ＋ rotate_half(x)·sin。cos / sin は x の形に合わせて広がる（ヘッドの軸は 1）。"""
     return x * cos + rotate_half(x) * sin
 
 
 def unpack(packed: torch.Tensor, bits: int, in_features: int) -> torch.Tensor:
-    """transformers の gemma_quant.py と同じ規則（符号なしで詰め、4bit は −8、2bit は −2 ずらす）。[out, in] int8。"""
+    """transformers の gemma_quant.py と同じ規則（符号なしで詰め、4bit は −8、2bit は −2 ずらす）。[out, in] int8。
+
+    packed [out, in×bits/8] の uint8 を、1 バイトの下の bit から順に取り出す（4bit は 2 個、2bit は 4 個）。
+    値の範囲: 4bit は −8〜7、2bit は −2〜1。in_features で切るのは、詰めるときの端数の分を捨てるため。
+    """
     p = packed.to(torch.uint8)
     if bits == 4:
         v = [(p & 0x0F).to(torch.int8) - 8, (p >> 4).to(torch.int8) - 8]
@@ -71,15 +90,22 @@ class QatFile:
     """QAT モバイル版のファイルから、名前を指定して必要なテンソルだけを読む。"""
 
     def __init__(self):
+        """model.safetensors を開く（中身はまだ読まない。get_tensor で名前ごとに読む）。cfg は config.json の text_config。"""
         self.f = safe_open(str(G.HF_DIR / "model.safetensors"), framework="pt")
         self.cfg = json.loads((G.HF_DIR / "config.json").read_text(encoding="utf-8"))["text_config"]
         self.eps = self.cfg["rms_norm_eps"]
 
     def t(self, name: str) -> torch.Tensor:
+        """名前を指定してテンソルを 1 つ読む（読んだ型のまま）。"""
         return self.f.get_tensor(name)
 
     def linear(self, base: str, in_features: int) -> dict:
-        """整数・スケール・bit と、float32 に戻した重み [out, in]。"""
+        """整数・スケール・bit と、float32 に戻した重み [out, in]。
+
+        bit は詰めた幅から決める: int8 ならそのまま 8bit、幅が入力の 1/4 なら 2bit（出力層）、1/2 なら 4bit。
+        戻り値: name・codes（整数 [out, in]）・scale（出力チャネルごと [out]）・bits・w（codes×scale）・
+                in_act / out_act（QAT の活性の丸めのスケール。0 は「較正していない」印）
+        """
         w = self.t(base + ".weight")
         s = self.t(base + ".weight_scale").float().reshape(-1)
         if w.dtype == torch.int8:
@@ -95,9 +121,16 @@ class QatFile:
                 "out_act": float(self.t(base + ".output_activation_scale"))}
 
     def vec(self, name: str) -> torch.Tensor:
+        """量子化されていないテンソル（正規化の重みなど）を float32 で読む。"""
         return self.t(name).float()
 
     def layer_info(self, i: int) -> dict:
+        """層 i の性質を config から決める。
+
+        戻り値: type（sliding_attention / full_attention）・full・shared（KV を自分で作らず使い回す層か。層 15〜34）・
+                kv_src（使い回す K/V の出どころ。15 より前の、同じ種類の最後の層＝局所 13・全体 14）・
+                hd（局所 256・全体 512）・inter（MLP の中間の幅。使い回す層は use_double_wide_mlp で倍）
+        """
         c = self.cfg
         typ = c["layer_types"][i]
         full = typ == "full_attention"
@@ -115,11 +148,13 @@ class RMSNorm(torch.nn.Module):
     （前処理 normalize_rmsnorm_input が C-11 の書き換えをかけ、QAIRT が RmsNorm に融合する形。Qwen と同じ）。"""
 
     def __init__(self, w: torch.Tensor, eps: float):
+        """w = 正規化の重み [次元]（Gemma の値をそのまま掛ける）、eps = 0 割りを防ぐ小さな値（config の rms_norm_eps）。"""
         super().__init__()
         self.weight = torch.nn.Parameter(w.clone(), requires_grad=False)
         self.eps = eps
 
     def forward(self, x):
+        """最後の軸で 2 乗の平均を取り、その平方根で割って重みを掛ける（形は変わらない）。"""
         return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps) * self.weight
 
 
@@ -134,12 +169,18 @@ def apply_srq(x: torch.Tensor, scale: float) -> torch.Tensor:
 
 
 class Lin(torch.nn.Module):
+    """バイアスの無い線形層（y = x·Wᵀ）。重みは QatFile.linear の w（float32 に戻した値）。
+    qat に名前・bit・活性のスケールを持たせておき、qat_inject が量子化後の ONNX に書き戻すときの目印にする。
+    SRQ=True のときだけ、入力と出力に QAT の 8bit の丸めを掛ける（PC での確認用）。"""
+
     def __init__(self, d: dict):
+        """d は QatFile.linear の戻り値。重み w [out, in] を学習しない Parameter として持つ。"""
         super().__init__()
         self.weight = torch.nn.Parameter(d["w"].clone(), requires_grad=False)
         self.qat = {k: d[k] for k in ("name", "bits", "in_act", "out_act")}
 
     def forward(self, x):
+        """x [.., in] → [.., out]。SRQ=True なら入力と出力に QAT の 8bit の丸めを掛ける（スケール 0 の本は丸めない）。"""
         if SRQ:
             y = F.linear(apply_srq(x, self.qat["in_act"]), self.weight)
             return apply_srq(y, self.qat["out_act"])
@@ -147,7 +188,14 @@ class Lin(torch.nn.Module):
 
 
 class DecoderLayer(torch.nn.Module):
+    """Gemma 4 の 1 層（冒頭の「配線」の図のとおり）。重みは QatFile から層 i の分だけ読む。
+    KV を使い回す層（shared）は k_proj・v_proj・k_norm を持たない。"""
+
     def __init__(self, qf: QatFile, i: int):
+        """層 i の部品を作る: 正規化 5 つ（注意の前後・MLP の前後・PLE の後）、q/o の射影と q_norm、
+        KV を自分で作る層なら k/v の射影と k_norm・v_norm（重みなし）、MLP の 3 本、PLE の門と射影、層ごとの倍率 layer_scalar。
+        各 Lin の第 2 引数は入力の幅（o_proj は 8×hd、down_proj は MLP の中間の幅、PLE の射影は 256）。
+        """
         super().__init__()
         info = qf.layer_info(i)
         self.info = info
@@ -181,6 +229,7 @@ class DecoderLayer(torch.nn.Module):
 
         T は「1回で食べるトークンの数」。生成は T=1、入力の文を食べる（プレフィル）ときは T>1 にする。
         """
+        # ① 注意の前半: 正規化 → q（q_norm → RoPE）。KV を自分で作る層は k・v も作り、キャッシュを左へずらして末尾に書く
         T = h.shape[1]
         res = h
         x = self.input_layernorm(h)
@@ -194,6 +243,7 @@ class DecoderLayer(torch.nn.Module):
             pv = torch.cat((past_v, v.transpose(1, 2)), dim=2)[:, :, T:, :]
         else:
             pk, pv = shared_kv
+        # ② スコア = q·Kᵀ ＋ マスク。Gemma 4 は 1/√hd を掛けない（スケール 1.0。q_norm・k_norm で大きさをそろえているためと推定）
         s = torch.matmul(q, pk.transpose(2, 3)) + attn_mask     # [1,1,8,L]。スケール 1.0
         # ★確率×V は**形を変えた V**（[1,L,hd]）に掛ける。V のキャッシュ（グラフの出力）と行列積の右辺を別のテンソルにし、
         #   右辺だけを 8bit に落とせるようにする（C-8: v68 の act×act MatMul は u16×u16 が通らない）。
@@ -202,11 +252,14 @@ class DecoderLayer(torch.nn.Module):
         L = pv.shape[2]
         p = torch.softmax(s, dim=-1).reshape(1, T * self.nh, L)   # [1,T*8,L]
         ctx = torch.matmul(p, pv.reshape(1, L, self.hd))         # [1,T*8,hd]
+        # ③ o_proj → 注意の後の正規化 → 残差に足す（Gemma は足す前にも正規化を挟む＝サンドイッチ型）
         h = res + self.post_attention_layernorm(self.o_proj(ctx.reshape(1, T, self.nh * self.hd)))
         res = h
+        # ④ MLP: 正規化 → gelu_tanh(gate)·up → down → 正規化 → 残差に足す
         x = self.pre_feedforward_layernorm(h)
         h = res + self.post_feedforward_layernorm(self.down_proj(gelu_tanh(self.gate_proj(x)) * self.up_proj(x)))
         res = h
+        # ⑤ PLE（層ごとの埋め込み）: h から門を作り、層 i の PLE の値 ple_i [1,T,256] と掛けて H に戻して足す。最後に層ごとの倍率
         g = gelu_tanh(self.per_layer_input_gate(h)) * ple_i
         h = res + self.post_per_layer_input_norm(self.per_layer_projection(g))
         h = h * self.layer_scalar
@@ -227,6 +280,9 @@ class DecodeLayers(torch.nn.Module):
     """
 
     def __init__(self, qf: QatFile, layers: list[int]):
+        """layers の層を並べる。使い回す層が読む K/V の出どころ（kv_src）がこのグラフの中に無ければ止める
+        （DecodeLayers は外から K/V を受け取る入力を持たないため。それができるのは DecodeChunk）。
+        """
         super().__init__()
         self.layer_ids = list(layers)
         self.layers = torch.nn.ModuleList([DecoderLayer(qf, i) for i in layers])
@@ -236,18 +292,23 @@ class DecodeLayers(torch.nn.Module):
                 raise ValueError(f"層{ly.info['i']} が使う K/V（層{ly.info['kv_src']}）がこのグラフに無い")
 
     def input_names(self) -> list[str]:
+        """ONNX の入力の名前（forward の引数の順と同じ）。KV は自分で作る層の分だけ。"""
         names = ["hidden_in"] + [f"ple_{i}" for i in self.layer_ids] + ["cos_s", "sin_s", "cos_g", "sin_g", "attn_mask"]
         for i in self.kv_layers:
             names += [f"past_k_{i}", f"past_v_{i}"]
         return names
 
     def output_names(self) -> list[str]:
+        """ONNX の出力の名前（forward の戻り値の順と同じ）。"""
         names = ["hidden_out"]
         for i in self.kv_layers:
             names += [f"present_k_{i}", f"present_v_{i}"]
         return names
 
     def forward(self, hidden_in, *rest):
+        """rest を input_names の順で切り分け（PLE → cos/sin 4 本とマスク → キャッシュ）、層を順に通す。
+        局所の層は cos_s/sin_s、全体の層は cos_g/sin_g を使う。作った K/V は kv に置き、使い回す層がそこから読む。
+        """
         n_ple = len(self.layer_ids)
         ples = rest[:n_ple]
         cos_s, sin_s, cos_g, sin_g, attn_mask = rest[n_ple:n_ple + 5]
@@ -283,6 +344,9 @@ class DecodeChunk(torch.nn.Module):
     """
 
     def __init__(self, qf: QatFile, layers: list[int], with_ple_proj: bool = False, with_head: bool = False):
+        """layers = このかたまりの層の番号、with_ple_proj = 入口（PLE の射影）を含める、with_head = 最後の正規化と出力層を含める
+        （layers が空なら出力層だけのかたまり）。
+        """
         super().__init__()
         self.layer_ids = list(layers)
         self.with_ple_proj = with_ple_proj
@@ -307,6 +371,9 @@ class DecodeChunk(torch.nn.Module):
             # 出力の tanh ソフトキャップ（30）は**掛けない**。単調なので argmax は変わらない（貪欲な生成では同じ）
 
     def input_names(self) -> list[str]:
+        """ONNX の入力の名前（forward の引数の順と同じ）: 入口なら inputs_embeds・ple_tok、そうでなければ hidden_in・ple_all、
+        続けて cos/sin 4 本・attn_mask・自分の KV（past_*）・前のかたまりの KV（shared_*）。
+        """
         if not self.layers:                                          # 出力層だけのかたまり（最後の正規化＋lm_head）
             return ["hidden_in"]
         names = (["inputs_embeds", "ple_tok"] if self.with_ple_proj else ["hidden_in", "ple_all"]) + \
@@ -318,14 +385,19 @@ class DecodeChunk(torch.nn.Module):
         return names
 
     def output_names(self) -> list[str]:
+        """ONNX の出力の名前（forward の戻り値の順と同じ）。"""
         names = (["logits"] if self.with_head else ["hidden_out"]) + (["ple_all"] if self.with_ple_proj else [])
         for i in self.kv_layers:
             names += [f"present_k_{i}", f"present_v_{i}"]
         return names
 
     def forward(self, x0, ple_in=None, cos_s=None, sin_s=None, cos_g=None, sin_g=None, attn_mask=None, *caches):
+        """x0 は inputs_embeds（入口）か hidden_in。ple_in は ple_tok（入口）か ple_all。残りは input_names の順。
+        出力層だけのかたまりは x0 だけを使う。戻り値は output_names の順。
+        """
         if not self.layers:                                          # 出力層だけのかたまり
             return (self.lm_head(self.final_norm(x0)),)
+        # ① 入口なら、35 層ぶんの PLE の値 ple_all [1,T,35,256] をグラフの中で作る（クラスの説明の式）
         if self.with_ple_proj:
             proj = F.linear(x0, self.ple_proj) * self.ple_in_scale
             proj = proj.reshape(1, x0.shape[1], self.n_layers, self.ple_dim)
@@ -335,8 +407,10 @@ class DecodeChunk(torch.nn.Module):
         h = x0
         kv, presents, ci = {}, [], 0
         n_own = 2 * len(self.kv_layers)
+        # ② 入力のキャッシュの並び: 自分の past_k/past_v（2×自分の KV の層の数）の後に、前のかたまりの shared_k/shared_v
         for k, i in enumerate(self.ext_kv):                          # 前のかたまりが作った K/V
             kv[i] = (caches[n_own + 2 * k], caches[n_own + 2 * k + 1])
+        # ③ 層を順に通す（DecodeLayers.forward と同じ。PLE は ple_all から層の番号で取り出す）
         for ly in self.layers:
             info = ly.info
             cos, sin = (cos_g, sin_g) if info["full"] else (cos_s, sin_s)
@@ -348,13 +422,19 @@ class DecodeChunk(torch.nn.Module):
                 ci += 2
                 kv[info["i"]] = (pk, pv)
                 presents += [pk, pv]
+        # ④ 出力層まで含むかたまりなら、最後の正規化と lm_head で logits にする
         if self.with_head:
             h = self.lm_head(self.final_norm(h))                    # [1,1,V]
         return (h, ple_all, *presents) if self.with_ple_proj else (h, *presents)
 
 
 def rope_tables(n_pos: int) -> dict:
-    """HF の Gemma4TextRotaryEmbedding から、局所・全体の cos/sin 表 [n_pos, hd] を作る（重みは読まない）。"""
+    """HF の Gemma4TextRotaryEmbedding から、局所・全体の cos/sin 表 [n_pos, hd] を作る（重みは読まない）。
+
+    戻り値: {"cos_s", "sin_s"}（局所、[n_pos, 256]）と {"cos_g", "sin_g"}（全体、[n_pos, 512]。p-RoPE で回さない次元は cos=1・sin=0）。
+    式を自分で書かずに HF の部品を呼ぶのは、写し間違いで静かにずれるのを避けるため（Qwen の rope_cos_sin と同じ考え）。
+    x は rotary が dtype を見るためだけの入れ物。
+    """
     from transformers import AutoConfig
     from transformers.models.gemma4.modeling_gemma4 import Gemma4TextRotaryEmbedding
     cfg = AutoConfig.from_pretrained(str(G.HF_DIR)).text_config

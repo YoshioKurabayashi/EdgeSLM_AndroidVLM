@@ -48,6 +48,16 @@
 同じことを PC の CPU どうしでもやり（CPU の「まとまりの中」と CPU の「1 行だけ」）、丸めの違いだけで出る差の大きさ（物差しの目盛り）にする。
 
 結果: `results/P5_t16/probe_rows_self.json`（`--model` を付けると `probe_rows_self_<種類>.json`）
+
+## 結果（StudyMemo 10.7 節の 4・7 段目）
+
+- 2026-10-01（4 段目）: まとまりの中の 1 行目以降 47%・1 行だけ 23%（NPU ↔ CPU の logits の差の中央値）。このときは「まとめ読みの不具合」と読んだが、
+  上の弱点 2 のとおり条件がそろっていなかった（10.7 節の「訂正（4〜6 段目の読み）」）
+- 2026-10-03（7 段目、`--self`、元の t16、3 問 × 5 行、8.6 分）: PC の CPU どうしでも 1 行目以降は logits が 13% 違う（「1 行だけ」は手前の行の K/V が
+  出力の目盛りでいったん丸められて戻るため、同じ計算にならない）。深い層（9〜14）の K/V の差は NPU と CPU で同じ水準（K 4〜7%、V 9〜11%）、
+  1 位の語は 15/15 で同じ → 16 行をまとめたことによる大きな不具合は見つからなかった。NPU だけ、0 行目の結果が同じまとまりのほかの行で
+  わずかに変わる（層 2 から。0 行目の logits で 9%）。どの演算かは未特定
+- 入力: diag_t16 と同じプロンプト・画像の特徴（評価の job と、端末に送った特徴のファイル）。端末へは probe_t16 の Device で job を送る
 """
 from __future__ import annotations
 
@@ -63,9 +73,12 @@ from app.pipeline.diag_t16 import IMG, T16_QDQ, TABLES, Tables, load_items, load
 from app.pipeline.probe_t16 import Cpu, Device, Feeder, rel
 
 RES = C.RESULTS / "P5_t16"
+# 既定の 3 問: syn_nav_S（文字を読み違えた合成画像）・car_12a（1 位と 2 位の差 13.9 でも端末が別の語を選んだ。10.7 節）・
+# vg_06（汎用の写真。選んだ理由は記録に無い）
 DEFAULT_ITEMS = ["syn_nav_S", "car_12a", "vg_06"]
 
 
+# NPU の logits（ln）と CPU の logits（lc）を比べる: 相対 L2（CPU が基準）・1 位が同じか・上位 5 の重なり・CPU の 1 位と 2 位の差。
 def logit_cmp(ln: np.ndarray, lc: np.ndarray) -> dict:
     ln, lc = np.asarray(ln, np.float64).reshape(-1), np.asarray(lc, np.float64).reshape(-1)
     tn, tc = np.argsort(-ln)[:5], np.argsort(-lc)[:5]
@@ -76,6 +89,7 @@ def logit_cmp(ln: np.ndarray, lc: np.ndarray) -> dict:
 
 def kv_row(npu: dict, cpu: dict, row: int, T: int = 16) -> dict:
     """層 0〜14 の新しい K/V の、まとまりの中の行 row の相対 L2"""
+    # present の新しい行は「後ろから T 行目」から始まる（層 13・14 は窓全体 256 行なので、その中の後ろ 16 行）。戻り値のキーは "k0"・"v14" など
     out = {}
     for name in sorted([k for k in cpu if k.startswith("present_")], key=lambda k: (int(k.rsplit("_", 1)[1]), k)):
         b = np.asarray(cpu[name], np.float64)
@@ -103,6 +117,9 @@ def pair_cmp(a: dict, row_a: int, b: dict, row_b: int, T: int = 16) -> dict:
 
 def self_check(a, iid, cpu, fd, tabs, R, want, f_in, o_in, t16_rel, rows_all, last0) -> list[dict]:
     """NPU の「まとまりの中の行 r」↔ NPU の「1 行だけ」（手前の行の K/V は NPU がまとまりの中で作った値）。CPU どうしでも同じことをする"""
+    # 引数: cpu = PC の CPU のグラフ、fd = 最後のまとまりの手前まで進めた入力の作り手、R = 最後のまとまりの行、want = 比べる行、
+    # f_in・o_in = まとまりの中の入力と CPU の出力（行 n−1 を選んだもの）、t16_rel = 端末の 16 トークン版の場所。
+    # ① まとまりの中: 同じ入力で logit_sel だけ行 r に変えたものを作る（K/V はどの行を選んでも同じなので、CPU は行 n−1 の出力を使い回せる）
     n = len(R)
     feeds_in, cpu_in = [], []
     for r in want:
@@ -124,10 +141,12 @@ def self_check(a, iid, cpu, fd, tabs, R, want, f_in, o_in, t16_rel, rows_all, la
             out.append(g.feed([R[r]]))
         return out
 
+    # ② 1 行だけ: CPU は CPU のまとまりの中の出力から、NPU は NPU のまとまりの中の出力から手前の行の K/V を取る（同じ側どうしで比べる）
     cpu_al = [cpu.run(f) for f in alone_feeds(o_in)]                   # CPU: 手前の行は CPU の値
     dev = Device(t16_rel, f"self_{iid}")
     npu_in, _ = dev.run(feeds_in, [f"in{r}" for r in want], keep=True)
     npu_al, _ = dev.run(alone_feeds(npu_in[0]), [f"al{r}" for r in want], keep=False)   # NPU: 手前の行は NPU の値
+    # ③ 行ごとに「まとまりの中 ↔ 1 行だけ」を NPU どうし・CPU どうしで比べる（1 行だけの方を基準。1 行だけの本物の行は 0 行目）
     recs = []
     for i, r in enumerate(want):
         rec = {"row": r, "image": rows_all[last0 + r][0] == IMG,
@@ -142,6 +161,11 @@ def self_check(a, iid, cpu, fd, tabs, R, want, f_in, o_in, t16_rel, rows_all, la
 
 
 def main():
+    """選んだ問題のプロンプトの最後のまとまりについて、行 r を 2 通りで通し、NPU と CPU（または --self で同じ側どうし）を比べる。
+
+    引数: --items（問題）・--rows（比べる行。既定は 0・n/4・n/2・3n/4・n−1）・--model（端末の版）・--self。
+    戻り値は無く、問題ごとに結果の JSON に書き足す。端末はアプリを止めて空きメモリを待ってから使う（1.5GB のグラフを開くため）。
+    """
     ap = argparse.ArgumentParser()
     ap.add_argument("--items", default=",".join(DEFAULT_ITEMS))
     ap.add_argument("--rows", default="", help="比べる行（カンマ区切り）。既定は 0・n/4・n/2・3n/4・n−1")
@@ -157,6 +181,7 @@ def main():
     tabs = Tables(TABLES)
     D.ensure_app()
     t16_rel = D.push_t16(D.T16_KINDS[a.model])
+    # ① 端末の準備: 16 トークン版を送り（済んでいれば送らない）、アプリを止めて空きメモリを確かめる。比べる相手の CPU は元の量子化済みグラフ
     out_file = RES / f"probe_rows{'_self' if a.self_check else ''}{'' if a.model == 't16' else '_' + a.model}.json"
     D.adb("shell", f"am force-stop {D.PKG}")
     time.sleep(2.0)
@@ -197,6 +222,7 @@ def main():
             out["items"].append({"id": iid, "prompt_len": len(ids), "last_chunk": [last0, len(ids) - 1], "rows": recs})
             C.write_json_atomic(out_file, out)
             continue
+        # ② NPU ↔ CPU の比べ（--self でないとき）: まとまりの中の行 r と、1 行だけ（手前の行は CPU の値）の入力を並べ、端末へまとめて送る
         feeds, tags, cpu_outs = [], [], []
         for r in want:
             f = {k_: v.copy() for k_, v in f_in.items()}
@@ -220,6 +246,7 @@ def main():
         dev = Device(t16_rel, f"rows_{iid}")
         on, _ = dev.run(feeds, [f"{m}{r}" for m, r in tags], keep=False)
         recs = []
+        # ③ 回ごとに NPU と CPU の logits・K/V を比べる。K/V は、まとまりの中なら行 r、1 行だけなら 0 行目を見る
         for (mode, r), o_n, o_c in zip(tags, on, cpu_outs):
             rr = r if mode == "in" else 0
             rec = {"mode": mode, "row": r, "image": rows_all[last0 + r][0] == IMG, **logit_cmp(o_n["logits"], o_c["logits"]),
@@ -235,6 +262,7 @@ def main():
         out["items"].append({"id": iid, "prompt_len": len(ids), "last_chunk": [last0, len(ids) - 1], "rows": recs})
         C.write_json_atomic(out_file, out)
     D.adb("shell", f"am force-stop {D.PKG}")
+    # ④ まとめ: --self は 0 行目と 1 行目以降に分けて、logits と層ごとの K/V の差の中央値を NPU どうし・CPU どうしで出す
     if a.self_check:
         rows = [x for it in out["items"] for x in it["rows"]]
         md_ = lambda xs: round(float(np.median(xs)) * 100, 3) if xs else None
@@ -259,6 +287,7 @@ def main():
               "同じくらい → まとめ読みに不具合は無い。NPU だけ大きい → その層から先に、行をまとめたときだけの違いがある")
         print(f"-> {out_file}（{(time.time() - t0) / 60:.1f} 分）")
         return
+    # ④' まとめ（--self でないとき）: まとまりの中と 1 行だけの、NPU ↔ CPU の logits の差の中央値と 1 位の一致
     ins = [x for it in out["items"] for x in it["rows"] if x["mode"] == "in"]
     al = [x for it in out["items"] for x in it["rows"] if x["mode"] == "alone"]
     md = lambda xs: float(np.median(xs)) * 100 if xs else float("nan")

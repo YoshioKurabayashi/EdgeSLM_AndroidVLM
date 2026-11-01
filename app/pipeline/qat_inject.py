@@ -16,6 +16,13 @@
    HTP の uint8（零点 128）は、QAT の int8 対称（−128〜127）と**同じ格子**を表す
 
 最後に読み直し、重みの「整数×スケール」が書き出し前の値と1ビットも違わないことを確かめる。
+
+（2026-10-18 追記）
+- どの段で使うか: export_chunk export → p2b_ops prepare（ORT の静的量子化で qdq と prepped を作る）→ **qat_inject**
+  → downgrade_actact_rhs（C-8）→ build_context.sh（StudyMemo（EdgeSLM_AndroidGemma4）05 の流れ図・02「QAT の丸めを端末で再現する」）
+- 入力: --qdq（量子化後の QDQ）・--prepped（量子化の前処理を済ませた float のグラフ。重みの値で対応づけるのに使う）・
+  --layers（かたまりに含めた層）・重みは gemma4_graph.QatFile（QAT のファイル）から
+- 出力: --out の QDQ と、同じ名前の .inject.json（書き込んだ本数・SRQ の本数・対応表・検査の結果）
 """
 from __future__ import annotations
 
@@ -29,11 +36,15 @@ from onnx import TensorProto, helper, numpy_helper
 
 from app.pipeline import gemma4_graph as M
 
+# PLE の射影（入口のかたまりにだけある。QAT では量子化されていない）の重みの名前
 PLE_PROJ = f"{M.PFX}per_layer_model_projection"
 
 
 def pack_int4(vals: np.ndarray) -> bytes:
-    """ONNX の INT4（符号付き）: 2つを1バイトに、下位4ビットが先。"""
+    """ONNX の INT4（符号付き）: 2つを1バイトに、下位4ビットが先。
+
+    vals は −8〜7 の整数（2bit の −2〜1 もそのまま入る）。& 0x0F で 2 の補数の下位 4bit を取り、奇数個なら 0 を 1 つ足す。
+    """
     v = (vals.astype(np.int8).reshape(-1) & 0x0F).astype(np.uint8)
     if v.size % 2:
         v = np.concatenate([v, np.zeros(1, np.uint8)])
@@ -41,7 +52,11 @@ def pack_int4(vals: np.ndarray) -> bytes:
 
 
 def qat_linears(layers: list[int], ple_proj: bool = False, lm_head: bool = False) -> dict:
-    """名前 → {codes [out,in] int8, scale [out], bits, w [out,in] float32, in_act, out_act}。"""
+    """名前 → {codes [out,in] int8, scale [out], bits, w [out,in] float32, in_act, out_act}。
+
+    layers の各層の行列（q/o/gate/up/down/PLE の門と射影、KV を自分で作る層なら k/v も）を QatFile から読む。
+    lm_head=True で出力層、ple_proj=True で PLE の射影（作り直し）も加える。fin は各行列の入力の幅（bit を決めるのに使う）。
+    """
     qf = M.QatFile()
     H = qf.cfg["hidden_size"]
     out = {}
@@ -58,7 +73,10 @@ def qat_linears(layers: list[int], ple_proj: bool = False, lm_head: bool = False
             out[p + n] = {"codes": d["codes"].numpy(), "scale": d["scale"].numpy().astype(np.float32),
                           "bits": d["bits"], "w": d["w"].numpy(), "in_act": d["in_act"], "out_act": d["out_act"]}
     if lm_head:
-        # 出力層（QAT は 2bit・行ごと）。SRQ の入出力スケールもあるので、行列積の入出力も 8bit にそろえる
+        # 出力層（QAT は 2bit・行ごと）。重みの値だけをここで書き込む。
+        # ★2026-10-18 訂正: 旧「SRQ の入出力スケールもあるので、行列積の入出力も 8bit にそろえる」。
+        #   実際は出力層の SRQ のスケールは 0（＝較正していない印）で、下の「活性の 8bit の丸め（SRQ）」の段で
+        #   外している（EdgeSLM_AndroidGemma4 の work/ops/g4head_L256/g4head_L256_a16w8_rhs8_qdq.inject.json でも SRQ 入力 0・出力 0）。入出力の丸めは付けない。
         d = qf.linear("lm_head", H)
         out["lm_head"] = {"codes": d["codes"].numpy(), "scale": d["scale"].numpy().astype(np.float32),
                           "bits": d["bits"], "w": d["w"].numpy(), "in_act": d["in_act"], "out_act": d["out_act"]}
@@ -75,11 +93,21 @@ def qat_linears(layers: list[int], ple_proj: bool = False, lm_head: bool = False
 
 
 def _u8_qdq(scale: float):
+    """SRQ の Q/DQ に入れる（スケール, 零点）。uint8・零点 128 なら q−128 が −128〜127 になり、QAT の int8 対称と同じ値の格子になる。"""
     return np.float32(scale), np.uint8(128)          # QAT の int8 対称（−128〜127）と同じ格子
 
 
 def inject(qdq: Path, prepped: Path, layers: list[int], out: Path, ple_proj: bool = False, srq: bool = True,
            lm_head: bool = False) -> dict:
+    """量子化後の QDQ の重みを QAT の値に書き換え、SRQ の Q/DQ を入れて out に保存し、読み直して確かめる。
+
+    段: ① QAT の行列を読み、形ごとに引ける表（by_shape）を作る → ② QDQ の INT4 の重み（DequantizeLinear の入力）を 1 本ずつ、
+        prepped の float の重みと値で突き合わせて QAT の行列を決め、整数・スケール・零点を書き換える
+        → ③ SRQ: その重みを使う MatMul の出力の Q/DQ を QAT の出力スケールに、入力の手前に Q/DQ を 1 組足す
+        → ④ 足したノードを MatMul の直前に並べて保存 → ⑤ 読み直して検査し、.inject.json に記録
+    戻り値: 記録の dict。対応しない重み・検査の不一致があれば止める。
+    """
+    # ① QAT の行列を読み、重みの形 [in, out] → 名前の list を作る（形が一意なら値の照合を軽くできる）
     lin = qat_linears(layers, ple_proj, lm_head)
     by_shape: dict = {}
     for nm, d in lin.items():
@@ -89,6 +117,7 @@ def inject(qdq: Path, prepped: Path, layers: list[int], out: Path, ple_proj: boo
     qm = onnx.load(str(qdq))
     g = qm.graph
     q_inits = {t.name: t for t in g.initializer}
+    # prod: テンソル名 → それを作るノード、cons: テンソル名 → それを使うノードの list（グラフをたどるための表）
     prod = {o: n for n in g.node for o in n.output}
     cons: dict[str, list] = {}
     for n in g.node:
@@ -97,6 +126,7 @@ def inject(qdq: Path, prepped: Path, layers: list[int], out: Path, ple_proj: boo
 
     mapping, written, retyped, srq_in, srq_out = {}, 0, 0, 0, 0
     new_nodes: list[tuple[int, list]] = []          # (MatMul の位置, 前に入れるノード)
+    # ② 重みの DQ（入力が初期化子で INT4 のもの）を探す。名前は「<元の重み>_quantized」なので、元の名前で prepped の値を引く
     for nd in list(g.node):
         if nd.op_type != "DequantizeLinear" or nd.input[0] not in q_inits:
             continue
@@ -121,6 +151,7 @@ def inject(qdq: Path, prepped: Path, layers: list[int], out: Path, ple_proj: boo
             raise SystemExit(f"{base}: QAT の重みと一意に対応しない（候補 {cands}）")
         nm = cands[0]
         d = lin[nm]
+        # ONNX の MatMul の重みは [in, out]（x @ W）。QAT は [out, in] なので転置して書く。スケールは出力チャネルごと（[out]）
         codes = d["codes"].T.copy()                                    # [in, out]
         x.ClearField("raw_data"); x.ClearField("int32_data")
         if d["bits"] == 8:
@@ -131,6 +162,7 @@ def inject(qdq: Path, prepped: Path, layers: list[int], out: Path, ple_proj: boo
             x.raw_data = pack_int4(codes)
         sc = q_inits[nd.input[1]]
         sc.CopyFrom(numpy_helper.from_array(d["scale"], sc.name))
+        # 零点は対称なので 0。型は重みと同じにする（8bit なら INT8、それ以外は INT4）
         if len(nd.input) > 2 and nd.input[2] in q_inits:
             zp = q_inits[nd.input[2]]
             n_zp = int(np.prod(zp.dims)) if zp.dims else 1
@@ -143,6 +175,7 @@ def inject(qdq: Path, prepped: Path, layers: list[int], out: Path, ple_proj: boo
         mapping[base] = {"qat": nm, "bits": d["bits"]}
         written += 1
 
+        # ③ ここから SRQ（重み 1 本ごとに、その重みを使う MatMul の入出力へ）
         # ---- 活性の 8bit の丸め（SRQ）----
         # ★スケールが 0 の本は「較正していない」印で、QAT 側も丸めない（transformers の `apply_srq` が何もしない）。
         #   出力層（`lm_head`）がこれにあたる。0 を入れるとゼロ除算になるので、ここで外す。
@@ -171,6 +204,7 @@ def inject(qdq: Path, prepped: Path, layers: list[int], out: Path, ple_proj: boo
         srq_in += 1
 
     # 入れるノードを、対応する MatMul の直前に置く（トポロジ順を保つ）
+    # ④ 後ろの位置から入れていくと、前の位置の番号がずれない
     if new_nodes:
         nodes = list(g.node)
         for idx, extra in sorted(new_nodes, key=lambda t: -t[0]):
@@ -187,6 +221,7 @@ def inject(qdq: Path, prepped: Path, layers: list[int], out: Path, ple_proj: boo
         qv = numpy_helper.to_array(c_inits[base + "_quantized"])
         sv = numpy_helper.to_array(c_inits[base + "_scale"]).astype(np.float32)
         wf = numpy_helper.to_array(p_inits[base])
+        # ⑤ 書いた整数×スケール（qv×sv）が prepped の float（wf）と完全に一致するか。QAT の値なら一致するはず
         if qv.size > 50_000_000 and not lin[mp["qat"]].get("from_float"):
             # ★出力層は [1536, 262144]。丸ごと float に戻すと 1.6GB×2 になるので、列を分けて確かめる
             ng = False
@@ -207,6 +242,7 @@ def inject(qdq: Path, prepped: Path, layers: list[int], out: Path, ple_proj: boo
                 bad.append(base)
         elif not np.array_equal(deq, wf):
             bad.append(base)
+    # ONNX の形式の検査（2GB を超えるモデルは checker が読めないので省く）
     onnx.checker.check_model(chk) if chk.ByteSize() < 2**31 else None
     info = {"qdq_in": str(qdq), "qdq_out": str(out), "written": written, "retyped_int8": retyped,
             "srq_inputs": srq_in, "srq_outputs": srq_out,
@@ -223,6 +259,7 @@ def inject(qdq: Path, prepped: Path, layers: list[int], out: Path, ple_proj: boo
 
 
 def main():
+    """引数を読み、--layers（「a-b」・カンマ区切り・空か none）を層の list にして inject を呼ぶ。"""
     ap = argparse.ArgumentParser()
     ap.add_argument("--qdq", type=Path, required=True)
     ap.add_argument("--prepped", type=Path, required=True)

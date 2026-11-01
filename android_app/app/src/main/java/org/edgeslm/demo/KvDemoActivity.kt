@@ -56,6 +56,16 @@ import kotlin.concurrent.thread
  *
  * セッションは**同時に2つ持たない**（2026-09-19 実測: 772MB×2 は保持できるが、ロード中の一時的なメモリ要求で lmkd に kill されうる。1プロセスの NPU 側上限も約1,710MiB で、Qwen2.5 KV512 と Qwen3 を同時に持つと超える。EdgeSLM_AndroidScale P0A）。
  * この画面を開くと窓ずらし版のセッションは閉じる。逆も同じ。
+ *
+ * ランチャーの「EdgeSLM KV」。task=generate_kv（C++ の job.cpp。1 ステップに 1 トークンを入れ、KV キャッシュを持ち回す）。
+ * モデルとモード: 既定は qwen_dec24_epctx.onnx。kv_modes.json で Qwen2.5 KV512・Qwen3 KV256・Qwen2.5-1.5B KV256 などを並べる
+ *   （README「KV 画面のモード」。1.5B は約 14 tok/s、0.5B は 26.6 tok/s）。
+ * 使う段: EdgeSLM_AndroidDemo の StudyMemo 1 章（端末で生成）・3 章（会話をまたいで KV を持ち回す）・4 章（画面）。
+ * 入力: 画面に打った文（対話モードでは会話）。files/ の tokenizer/・models/ops/・inputs/（cos・sin の表）・
+ *   jobs/kv_demo.json（全体の上書き）・jobs/kv_modes.json（モード）。
+ * 出力: 画面の表示と logcat（タグ EdgeSLMKvDemo。PC の道具が読む「session ready」「chat turn」「turn stats」の行）。
+ * 動かし方: adb shell am start -n org.edgeslm.demo/.KvDemoActivity（テスト用の引数は下の autoPrompts の注記）。
+ * （2026-10-18 学習用に追記）
  */
 class KvDemoActivity : Activity() {
 
@@ -73,6 +83,7 @@ class KvDemoActivity : Activity() {
 
     private var promptText: String = ""
     private var lastRev: Long = -1L
+    // cacheLen: モデルの KV キャッシュの長さ（attn_mask の最後の次元。describe から読む。状態の行に出すだけ）
     private var cacheLen: Int = 0
 
     // ---- 対話モード ----
@@ -115,6 +126,7 @@ class KvDemoActivity : Activity() {
     private lateinit var chatToggle: android.widget.CheckBox
     private lateinit var titleView: TextView
 
+    /** 画面を作り、テスト用の引数（mode・chat・prompts）を読んでから、辞書とモデルの読み込みを別のスレッドで始める。 */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         modes = loadModes()
@@ -136,6 +148,7 @@ class KvDemoActivity : Activity() {
         onGenerate()
     }
 
+    /** テスト用: 自動で送り終えた会話を out/kv_ui_chat.txt に書き、PC が待つ「auto_chat done」をログに出す。 */
     private fun dumpAutoChat() {
         runCatching {
             File(getExternalFilesDir(null), "out/kv_ui_chat.txt").writeText(chatLog.toString())
@@ -143,6 +156,8 @@ class KvDemoActivity : Activity() {
         Log.i(TAG, "auto_chat done turns=$chatTurns")
     }
 
+    /** 画面を閉じるときは、生成を止めてからセッションを閉じる（NPU のメモリを返す）。 */
+    //   ★DemoActivity と同じく、生成の途中で閉じると作業スレッドが使っているセッションを壊しうる（推定）
     override fun onDestroy() {
         if (handle != 0L) {
             NativeBridge.nativeCancel(handle)
@@ -154,6 +169,10 @@ class KvDemoActivity : Activity() {
 
     // ------------------------------------------------------------------ 画面
 
+    /**
+     * 画面をコードで組む。上から: 題名・副題・状態の行・モード行（あれば）・入力欄・定型プロンプト・対話モードの切り替え・
+     * Generate（送信）／Stop・窓ずらし版へのボタン・統計・出力。
+     */
     private fun buildUi(): View {
         val dp = resources.displayMetrics.density
         fun px(v: Int) = (v * dp).toInt()
@@ -288,6 +307,7 @@ class KvDemoActivity : Activity() {
         return root
     }
 
+    /** ボタンの押せる・押せないと状態の行をまとめて変える（DemoActivity と同じ決まり）。 */
     private fun setBusy(busy: Boolean, status: String?) {
         generateButton.isEnabled = !busy && handle != 0L && tokenizer != null
         stopButton.isEnabled = busy && generating
@@ -318,6 +338,10 @@ class KvDemoActivity : Activity() {
 
     // -------------------------------------------------------------- 初期化
 
+    /**
+     * 起動時の読み込み（作業スレッドで動く）。① 辞書を読む → ② job の土台にパスを入れてモデルを開く
+     * → ③ キャッシュの長さと配置を状態の行に出す → テスト用の自動送信があれば始める。
+     */
     private fun initSession() {
         val base = getExternalFilesDir(null)
         if (base == null) {
@@ -329,8 +353,10 @@ class KvDemoActivity : Activity() {
         }
         try {
             ui.post { setBusy(true, "トークナイザを読み込み中…") }
+            // ①
             val tok = Qwen2Tokenizer.load(File(base, "tokenizer"))
 
+            // ②
             ui.post { setBusy(true, "decode モデルを読み込み中…") }
             val config = JsonInject.addRuntimePaths(
                 baseJobJson(),
@@ -356,6 +382,7 @@ class KvDemoActivity : Activity() {
             }
             handle = h
             tokenizer = tok
+            // ③ 入力の attn_mask の形 [1, 1, 1, L] の最後の次元 L が、キャッシュに持てるトークン数（推定: 形の並びは describe の inputs のまま）
             cacheLen = describe.optJSONArray("inputs")?.let { arr ->
                 (0 until arr.length()).map { arr.getJSONObject(it) }
                     .firstOrNull { it.optString("name") == "attn_mask" }
@@ -388,6 +415,8 @@ class KvDemoActivity : Activity() {
             put("job_id", "kv_demo_ui")
             put("task", "generate_kv")
             put("model", MODEL_REL)
+            // mask_neg: 見せない位置に足す値（−∞ の代わり。量子化の目盛りに収まる大きさにしてあるとみられる。推定）。
+            // cos_table・sin_table: 位置ごとの回転（RoPE）の表。C++ が位置に合わせて 1 行ずつ引いて入力にする（窓が一杯になっても位置は進む）
             put("mask_neg", -60.0)
             put("const_inputs", JSONObject().apply {
                 put("cos_table", COS_TABLE)
@@ -468,6 +497,7 @@ class KvDemoActivity : Activity() {
     /** モードを切り替える。**セッションは1つだけ開く**ので、先に解放してから開き直す。 */
     private fun switchMode(index: Int) {
         if (generating || index == modeIndex || index !in modes.indices) return
+        // 先に新しいモードの番号にしておく（baseJobJson・assistantPrefix が modeIndex を読むため）。開けなかったら prev に戻す
         val prev = modeIndex
         modeIndex = index
         // ★モデルを替えたら会話を最初からやり直す（2026-09-17）。
@@ -608,11 +638,16 @@ class KvDemoActivity : Activity() {
         }
     }
 
+    /**
+     * Generate（送信）を押したとき。① 打った文（対話モードでは差分のテンプレート）を ID 列にする → ② job を組む
+     * （対話モードではキャッシュの持ち回しの指定を付ける）→ ③ 見張りを始めて別のスレッドで生成 → ④ 結果を会話と統計に出す。
+     */
     private fun onGenerate() {
         val tok = tokenizer ?: return
         if (handle == 0L || generating) return
         val text = promptEdit.text.toString()
         if (text.isBlank()) return
+        // ① 対話モードでは chatDelta のテンプレートで包んでから ID 列にする（特殊トークンは 1 つの ID になる）
         val ids = tok.encode(if (chatMode) chatDelta(text) else text)
         if (ids.isEmpty()) return
         // ★端末が**実際に食べた** ID 列を残す。個数が合っていても中身が合うとは限らない
@@ -625,6 +660,8 @@ class KvDemoActivity : Activity() {
             promptEdit.setText("")
         }
         promptText = if (chatMode) chatLog.toString() else text
+        //   ★-1 から始めるので、ジョブが始まる前の一瞬に前のターンの語を読みうる（チャット画面だけ直してある。
+        //     EdgeSLM_AndroidDemo の StudyMemo 4.2 の「気になった点」。この画面は「最初の文字まで」を出さないので数字には出ない。推定）
         lastRev = -1L
         generating = true
         setBusy(true, null)
@@ -632,6 +669,7 @@ class KvDemoActivity : Activity() {
         // 充填中は生成が始まらないので、待たせていることを明示する
         statsView.text = "キャッシュを埋めています（${ids.size} トークン）…"
 
+        // ② 土台の job に、ID 列・上限・止める ID と、対話モードならキャッシュの持ち回しの指定を足す
         val job = JSONObject(baseJobJson()).apply {
             // 対話は文が途中で切れると読めないので長めに取る。
             // 続きを書かせるモードは従来どおり。
@@ -659,6 +697,7 @@ class KvDemoActivity : Activity() {
             overridesJson = null
         )
 
+        // ③ 見張り（50ms ごと）を始め、生成は別のスレッドで（nativeRunJob は終わるまで戻らない）
         ui.post(pollProgress)
         thread(name = "edgeslm-kv-generate") {
             val result = NativeBridge.nativeRunJob(handle, jobJson)
@@ -705,6 +744,7 @@ class KvDemoActivity : Activity() {
         }
     }
 
+    /** 50ms ごとに C++ の途中経過を読み、rev が変わったときだけ描き直す（DemoActivity と同じ作り）。 */
     private val pollProgress = object : Runnable {
         override fun run() {
             // ★生成が終わっていたら何もしない。最後の1回が `showFinalStats` の後に走ると、
@@ -738,6 +778,7 @@ class KvDemoActivity : Activity() {
     private fun finishChatTurn(newIds: List<Int>) {
         val tok = tokenizer ?: return
         val raw = if (newIds.isEmpty()) "" else tok.decode(newIds)
+        // 止める印（<|im_end|>・<|endoftext|>）は表示から消し、前後の空白を落として会話ログへ
         val ans = raw.replace("<|im_end|>", "").replace("<|endoftext|>", "").trim()
         chatLog.append("端末: ").append(ans).append("\n\n")
         chatTurns += 1
@@ -747,6 +788,7 @@ class KvDemoActivity : Activity() {
         outputScroll.post { outputScroll.fullScroll(View.FOCUS_DOWN) }
     }
 
+    /** プロンプト（対話モードでは会話ログ）を灰色、生成中の分を黒の太字で描く。 */
     private fun renderOutput(newIds: List<Int>) {
         val tok = tokenizer ?: return
         // ★対話モードで生成が終わったあとは触らない。
@@ -806,6 +848,7 @@ class KvDemoActivity : Activity() {
                     " zc=%s prep_ms=%.2f run_ms=%.2f post_ms=%.2f",
                 med, ortMed, n, prefill, filled, reused, absPos,
                 r.optBoolean("zero_copy", false), bdm("prep"), bdm("run_wall"), bdm("post")))
+            // abs_pos（これまでに入れた位置の数）がキャッシュの長さを超えたら、古い発話を忘れ始めたことを知らせる
             val window = if (cl in 1 until absPos)
                 System.lineSeparator() + "会話が窓（${cl} トークン）を超えました: 古い発話から忘れます" +
                     (if (r.optBoolean("pin_pos0", false)) "（先頭の区切りだけは保持）" else "")
@@ -821,10 +864,12 @@ class KvDemoActivity : Activity() {
     }
 
     companion object {
+        // MODEL_REL: 既定のモデル（per-tensor の 24 層。kv_modes.json があればモードの model で上書きされる）
         private const val TAG = "EdgeSLMKvDemo"
         private const val MODEL_REL = "models/ops/qwen_dec24_epctx.onnx"
         /// 対話モードの system prompt。**短く保つ**——KVキャッシュの容量を食うため。
         private const val SYSTEM_PROMPT = "あなたは車載アシスタントです。短く答えてください。"
+        // 回転（RoPE）の cos・sin の表（files/inputs/。float32 の [行][HD] で、位置ごとに 1 行使う。行数はキャッシュの長さ以上が要る。job.cpp の generate_kv）
         private const val COS_TABLE = "inputs/cos_table_l64.bin"
         private const val SIN_TABLE = "inputs/sin_table_l64.bin"
         private const val OVERRIDE_REL = "jobs/kv_demo.json"
@@ -833,12 +878,15 @@ class KvDemoActivity : Activity() {
         /// assistant 開始直後に差し込む定型句を指す鍵（Qwen3 の空 think ブロック用）
         private const val ASSISTANT_PREFIX_KEY = "assistant_prefix"
         private const val POLL_MS = 50L
+        // MAX_NEW: 続きを書かせるモードで作る語の上限。STOP_IDS: <|im_end|>（151645）と <|endoftext|>（151643）
         private const val MAX_NEW = 32
         /// 対話モードの生成上限。**32 だと文が途中で切れる**（実機で確認）。
         private const val MAX_NEW_CHAT = 96
         private val STOP_IDS = listOf(151645, 151643)
 
         // 窓ずらし版と同じプリセット（比較しやすいように揃えてある）
+        // （★2026-10-18 訂正: 旧「窓ずらし版と同じプリセット（比較しやすいように揃えてある）」は下の PRESETS についての注記で、
+        //   窓ずらし版（DemoActivity）と同じなのは「France」の 1 つだけ。他の 3 つは違う文。すぐ下の CHAT_PRESETS は対話モード用）
         /// 対話モードのプリセット。**日本語で試せるようにしてある**
         /// （端末の IME を使わずに日本語を入れられる）。
         private val CHAT_PRESETS = listOf(

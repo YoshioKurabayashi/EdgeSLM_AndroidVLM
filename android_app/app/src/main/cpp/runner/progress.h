@@ -15,6 +15,15 @@
 //   デモアプリで走る生成は常に1本であり、複数同時実行の要件がない。
 //   run_job() のシグネチャを変えずに済み、コピー元 EdgeSLM_Android/android_runner
 //   との差分を小さく保てる。
+//
+// （2026-10-18 追記）どこで使うか:
+//   書く側: job.cpp の generate（窓ずらし）と generate_kv（KV キャッシュ）が、生成の前に begin、1 語ごとに push、
+//           終わりに finish を呼ぶ（同じ写しを使うほかのプロジェクトの task にも、これを呼ぶものがある）。
+//   読む側: edgeslm_jni.cpp の nativeProgress → snapshot()。画面（ChatActivity など）が 50ms ごとに読み、
+//           rev が変わったときだけ中身を使う（EdgeSLM_AndroidDemo/DoC/StudyMemo/04_デモの画面を作る.md 4.2）。
+// 入力と出力: push する「語の ID・実時間・OrtRun の時間」→ snapshot の JSON
+//   {running, done, rev, max_new, window, prompt_len, ids, n, error?, last_ms?, median_ms?, median_ort_ms?, tokens_per_sec?}
+// 動かし方: 単独では動かない。画面で生成を始めると、この状態が動く
 
 #pragma once
 
@@ -27,11 +36,18 @@
 
 namespace edgeslm {
 
+// 生成の途中経過を 1 か所に置く入れ物。プロセスに 1 つ（instance()）。
+// すべての読み書きは m_ でロックする（書くのは生成のスレッド、読むのは画面のスレッド）
 class GenProgress {
 public:
+    // プロセスに 1 つの GenProgress を返す（最初に呼ばれたときに作る）
     static GenProgress& instance();
 
     // 生成の開始を記録する（以前の結果は破棄される）
+    //   max_new   : 生成する語数の上限
+    //   window    : 長さの目安。generate は窓の長さ W、generate_kv は attn_mask の最後の次元 L（KV のスロット数と推定）、
+    //               Gemma4Head の gen 版の prefill_gen はグラフの長さ T を入れている（各 job.cpp の呼び出し）
+    //   prompt_len: プロンプトのトークン数
     void begin(int max_new, int window, size_t prompt_len);
 
     // 1トークン確定するたびに呼ぶ。
@@ -48,8 +64,10 @@ public:
     nlohmann::json snapshot() const;
 
 private:
+    // 外から作らせない（instance() だけが作る）
     GenProgress() = default;
 
+    // mutable: snapshot() は const だが、ロックはするため
     mutable std::mutex m_;
     bool running_ = false;
     bool done_ = false;

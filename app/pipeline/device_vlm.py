@@ -37,6 +37,13 @@ JPEG の復号（PIL と Android の違い）はここでは比べない（uiche
 評価の画像 1 枚を端末に置き、画面を「その写真・その質問」で起動する（`--es image … --es question_file …`）。
 logcat から、画面が作ったプロンプトの ID（HF と同じか）、前処理の結果（PC の PIL と比べる。Android の JPEG の復号の差が出る）、
 答えと時間を取る。
+
+## 結果（`results/P3_20260929_device_vlm.md`。StudyMemo 9 章・11 章）
+
+- prep（Q14）: 評価の全 108 枚で、端末の C++ の pixel_values が PC（PIL）とビット単位で一致
+- eval（Q15）: 端末の NPU だけで 48/123（1 トークン版）。Phase 5 の 16 トークン版は 45/123、新しい system 文で 54/123（StudyMemo 10.7・10.8 節）
+- uicheck（Q16）: 最初の文字まで 8.3 秒（中央値、1 トークン版）、画像の読み取り 1.17 秒（うち NPU 166ms）
+- holdcheck: 画面を前に出すと 5/5 で止められずに開けた（`results/P3_device_vlm/b70_holdcheck_hold.json`）
 """
 from __future__ import annotations
 
@@ -52,6 +59,7 @@ import numpy as np
 from app.pipeline import device_vit as D
 from app.pipeline import vlm_common as C
 
+# 置き場: PC の作業場所・端末だけの評価の結果（ref_vlm と同じ置き場）・この道具の結果。FEATS_DEV は 2-5 で端末の NPU が作った画像の特徴
 IO = C.WORK / "device_vlm"
 RES_REF = C.RESULTS / "P1_ref_vlm"
 RES = C.RESULTS / "P3_device_vlm"
@@ -59,6 +67,7 @@ FEATS_DEV = C.WORK / "feats" / "vit_b70_21x30_nosrq_dev.npz"
 VLM_ACT = f"{D.PKG}/org.edgeslm.demo.VlmActivity"
 
 
+# 評価の一覧（work/eval/manifest.json）を読む。
 def load_manifest() -> dict:
     return json.loads((C.EVAL_DIR / "manifest.json").read_text(encoding="utf-8"))
 
@@ -79,6 +88,10 @@ def to_rgb(img):
 # prep（Q14）
 # ---------------------------------------------------------------------------
 def cmd_prep(a) -> dict:
+    """Q14: 評価の全画像を PC で RGB にして端末へ送り、端末の C++ の前処理の結果を PC（PIL）と 1 枚ずつ比べる。
+
+    戻り値: {"n", "n_exact": ビット一致した枚数, "pass", "rows"}。RGB から始めるので、JPEG の復号の違いは入らない。
+    """
     from PIL import Image
     from app.pipeline import hf_vlm as H
     D.ensure_app()
@@ -108,6 +121,7 @@ def cmd_prep(a) -> dict:
     local = IO / "vlmprep"
     shutil.rmtree(local, ignore_errors=True)
     D.adb("pull", f"{D.DEV}/out/vlmprep", str(IO))
+    # 端末の出力を取ってきて、PC の値との差の最大が 0（ビット一致）かを数える。縮める時間も端末の記録から拾う
     rows, n_exact = [], 0
     for k, (rp, rec) in enumerate(zip(images, res.get("records", []))):
         if "error" in rec:
@@ -131,6 +145,7 @@ def cmd_prep(a) -> dict:
 # ---------------------------------------------------------------------------
 # eval（Q15）: 端末だけで 126 問
 # ---------------------------------------------------------------------------
+# PC の HF のプロセッサで、評価と同じプロンプトの ID の並びを作る（画像トークンの数が予算と同じかも確かめる）。戻り値: (ID の並び, 画像トークン数)。
 def hf_prompt(proc, H, img, question: str, budget: int, system: str):
     img_in = H.prepare_image(img, "fixed", budget)
     inputs, n_img, _ = H.build_inputs(proc, img_in, question, budget, system, "cpu", expect_exact=True)
@@ -138,6 +153,11 @@ def hf_prompt(proc, H, img, question: str, budget: int, system: str):
 
 
 def cmd_eval(a) -> dict:
+    """Q15: 端末だけで 126 問を解く。プロンプトの ID は PC の HF で作り、画像の特徴は端末の NPU が作ったものを送り、文章側は端末の NPU。
+
+    答えは PC で文字に戻して判定し、ref_vlm と同じ形で results/P1_ref_vlm/ に書く（ref_vlm report の表に並ぶ）。
+    job は 28 問ずつ。落ちたら待ってやり直し、途中で止まっても同じコマンドで残りから続く。
+    """
     C.ensure_hf_env()
     from PIL import Image
     from transformers import AutoProcessor
@@ -193,6 +213,7 @@ def cmd_eval(a) -> dict:
     #   前のプロセスのメモリが片付く前に次の 1.6GB を読み込むことになり、OS に止められた（2026-09-29 の 2 回目、43 問目から）
     D.adb("shell", f"am force-stop {D.PKG}")
     time.sleep(2.0)
+    # ① 28 問ずつの job（task generate_kv）を作る。マスクの値は −60（16bit に量子化できる「ほぼ −∞」。C-9）
     for c0 in range(0, len(todo), a.chunk):
         chunk = todo[c0:c0 + a.chunk]
         n0 = len(done) + c0
@@ -219,6 +240,7 @@ def cmd_eval(a) -> dict:
                 print(f"    {a.cooldown} 秒待ってやり直す", flush=True)
                 D.adb("shell", f"am force-stop {D.PKG}")
                 time.sleep(a.cooldown)
+        # ② 問題ごとに、端末の答えの ID を文字に戻して判定し、時間と「画像の特徴を入れた位置の数」を記録する
         if res.get("_kind") != "result" or "dialogs" not in res:
             raise SystemExit(f"端末で解けなかった: {json.dumps(res, ensure_ascii=False)[:800]}")
         for dg in res["dialogs"]:
@@ -232,6 +254,8 @@ def cmd_eval(a) -> dict:
             r = {"id": iid, "set": m["it"]["set"], "tags": m["it"]["tags"], "question": m["it"]["question"],
                  "answer": ans, "answer_ref": m["it"].get("answer_ref"), "judge": jd,
                  "n_image_tokens": m["n_img"], "prompt_len": m["prompt_len"], "gen_tokens": len(gen), "gen_ids": gen,
+                 # ★t_first は prefill_ms。16 トークン版では、答えの 1 つ目を出す最後の読み込みの回を含まない
+                 #  （その回は step_ms の 1 つ目に数える。含めた時間は first_step_ms を足す。StudyMemo 10.7 節の 2026-10-17 訂正）
                  "t_first": round(float(tr.get("prefill_ms", 0.0)) / 1000.0, 3),
                  "t_total": round(float(tr.get("total_ms", 0.0) or 0.0) / 1000.0, 3),
                  "image_size": m["image_size"], "device": {"ok": tr.get("ok"), "error": tr.get("error"),
@@ -250,6 +274,7 @@ def cmd_eval(a) -> dict:
                                        "text_model": text["model"],
                                        "vision": f"npz:work/feats/{FEATS_DEV.name}", "device": "SOG05 NPU",
                                        "system_prompt": system, "results": results})
+    # ③ 点（自動判定できた問題の正解数）と、画像の特徴を入れた数が画像トークン数（70）と合わない問題を数える
     ok = [r for r in results if r["judge"]["ok"] is not None]
     n_ok = sum(1 for r in ok if r["judge"]["ok"])
     fed_bad = [r["id"] for r in results if r["device"]["image_tokens_fed"] != r["n_image_tokens"]]
@@ -263,6 +288,7 @@ def cmd_eval(a) -> dict:
 # uicheck（Q13・Q16）
 # ---------------------------------------------------------------------------
 def cmd_uicheck(a) -> dict:
+    """Q13・Q16: 評価の写真 1 枚と質問を画面（VlmActivity）に渡して起動し、logcat からプロンプトの ID・前処理・答え・時間を取って PC と比べる。"""
     C.ensure_hf_env()
     from PIL import Image
     from transformers import AutoProcessor
@@ -282,6 +308,7 @@ def cmd_uicheck(a) -> dict:
     D.wake()
     t0 = time.time()
     D.adb("shell", f"am start -n {VLM_ACT} --es image inputs/vlm/test{ext} --es question_file inputs/vlm/q.txt")
+    # 画面が「vlm stats:」（終わり）か「vlm read failed」を出すまで 2 秒ごとに logcat を読む
     log = ""
     while time.time() - t0 < a.timeout:
         time.sleep(2)
@@ -296,6 +323,7 @@ def cmd_uicheck(a) -> dict:
     ui_ids = [int(x) for x in ids_s.split(",")]
     proc = AutoProcessor.from_pretrained(str(C.HF_DIR), local_files_only=True)
     img = Image.open(src)
+    # プロンプトの ID: 画面が作った並びと、PC の HF の並びが同じか
     hf_ids, _ = hf_prompt(proc, H, img, it["question"], a.budget, man["system_prompt"])
     same_ids = ui_ids == hf_ids
     # 前処理: 画面が作った pixel_values と PC（PIL で復号）を比べる（違いは JPEG の復号と、大きい写真の読むときの縮小）
@@ -349,10 +377,12 @@ def cmd_holdcheck(a) -> dict:
         if k:
             time.sleep(a.settle)
         mem = D.wait_mem()
+        # 1 回ぶん: 読み込み中の優先度を別のスレッドで 1 秒ごとに読みながら、job を 1 つ動かす
         job = dict(base, job_id=f"vlm_holdcheck_{mode}_{k}", dialogs=base["dialogs"][:max(1, a.n or 1)])
         samples, stop = [], threading.Event()
 
         def sample(t0=time.time()):
+            # 別のスレッドで 1 秒ごとに、アプリのプロセスの番号と oom_score_adj を読んで [経過秒, pid, adj] を残す（stop が立つまで）
             while not stop.is_set():
                 pid = D.adb("shell", f"pidof {D.PKG} || true", check=False).split()
                 if pid:
@@ -398,6 +428,7 @@ def cmd_holdcheck(a) -> dict:
     return {"mode": mode, "n_ok": n_ok, "n": len(runs), "runs": runs}
 
 
+# prep・eval・uicheck・holdcheck のどれかを動かし、results/P3_device_vlm/b70_<コマンド>….json に書く。
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["prep", "eval", "uicheck", "holdcheck"])

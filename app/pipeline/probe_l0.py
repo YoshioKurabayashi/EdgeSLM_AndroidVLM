@@ -10,7 +10,12 @@
 **EdgeSLM_Android の venv（$PY2）で動かす**（onnx・onnxruntime・adb）。変換は build_t16 と同じく Git Bash から build_context.sh。
 端末は USB でつなぎ、VLM 検証アプリ（org.edgeslm.vlm）を入れておく。
 
-## ここまで（probe_t16、results/P5_t16/probe_t16.json）
+> ★2026-10-18 追記（後で分かったこと）: 切り分けの 7 段目（2026-10-03、`results/P5_20261003_t16_accuracy.md` 3 節）で、
+> **基準にしていた PC の CPU の方が画像の行で誤っていた**と分かった（正規化の途中の目盛りは文章だけで決めたもので、
+> 画像の行ではみ出して切れる。NPU はまとめた RmsNorm で正確）。下の「NPU の計算が CPU の計算と大きく違う＝NPU がずれている」は当時の読みで、今は取り消している。
+> 道具そのもの（同じ入力を NPU と CPU に通して比べる）はそのまま使える。StudyMemo 10.7 節。
+
+## ここまで（probe_t16、results/P5_t16/probe_t16.json。当時）
 
 C++ の入れ方は正しく、16 トークン版の NPU の計算が、同じ量子化済みグラフの CPU の計算と大きく違う。
 層ごとの K/V の差は、文字の行で層 0 の 2% → 層 1 で 23%、画像の行は層 0 から 40%。→ **層 0 の中**でずれ始める。
@@ -38,6 +43,14 @@ C++ の入れ方は正しく、16 トークン版の NPU の計算が、同じ�
    16 トークン版の行 r と、1 トークン版の同じ位置の 1 行を並べ、**16 トークン版だけが大きくずれる最初の計算**を探す
 
 結果: `results/P5_t16/l0probe.json`（全部）と `results/P5_t16/l0probe_table.md`（途中の値の表）
+
+## 結果（StudyMemo 10.7 節の 3・4 段目）
+
+- plain（3 段目）: 層 0・1 だけの小さいグラフでも、層 0〜14 の K/V のずれは 1 トークン版と 16 トークン版でほぼ同じ（画像の行は層 0 の K から 10〜63%）。
+  → 16 行の形のせいではない
+- taps（4 段目）: 変換後の DLC で、plain は正規化 12 個が全部 RmsNorm にまとまり、taps は 7 個がばらしたまま残った（途中の値を出力にした所だけまとめが止まる）。
+  当時は「① まとめた RmsNorm がずれる」「② [16×256] の tanh が 2〜15 行目で壊れる」と読んだ。★2026-10-18 追記: ① は 7 段目で誤りと分かった
+  （ずれていたのは CPU の側）。② は直しても答えが変わらなかった。測った数字は正しい（上の ★追記と同じ）
 """
 from __future__ import annotations
 
@@ -55,6 +68,7 @@ from app.pipeline import vlm_common as C
 from app.pipeline.diag_t16 import IMG, TABLES, Tables, load_items, old_prompt
 from app.pipeline.probe_t16 import Cpu, Device, Feeder
 
+# 切り出しの元: 16 トークン版と 1 トークン版のかたまり A（入口＋層 0〜8）の final_qdq。どちらも読むだけ
 SRC = {
     "t16": C.OPS / "g4t16_c0_8h" / "g4t16_c0_8h_final_qdq.onnx",                  # 本プロジェクト（Phase 5）
     "t1": G.G4_OPS / "g4c0_8h_L256" / "g4c0_8h_L256_final_qdq.onnx",              # EdgeSLM_AndroidGemma4（読むだけ）
@@ -64,9 +78,11 @@ CUT_OUTPUTS = ["present_k_0", "present_v_0", "present_k_1", "present_v_1"]
 RES = C.RESULTS / "P5_t16"
 IO = C.WORK / "l0probe"
 GIT_BASH = os.environ.get("GIT_BASH", r"C:\Program Files\Git\bin\bash.exe")
+# 1 トークン版で通す位置は、16 トークン版の回の最初と最後の行、文字と画像の境目（1 回目の 7・8 行目）。N_CHUNKS = 比べる回の数
 T1_ROWS = [(0, 0), (0, 15), (1, 0), (1, 7), (1, 8), (1, 15), (2, 0), (2, 15)]   # 1 トークン版で通す（回, 行）
 N_CHUNKS = 3
 
+# GELU は tanh 近似: 0.5x(1+tanh(√(2/π)(x+c·x³)))（c = 0.044715。gemma4_graph.gelu_tanh と同じ式）
 # 層 0 の演算の名前（書き出しの名前。16 トークン版・1 トークン版で同じ）→ 何の計算か（表に出す）
 ROLE = {
     "node_mul": "PLE: 入口×定数", "node_linear": "PLE: 射影（1536→35×256）", "node_view": "PLE: 形を変える",
@@ -117,6 +133,7 @@ ROLE = {
 # ---------------------------------------------------------------------------
 # 切り出し
 # ---------------------------------------------------------------------------
+# 版ごとの置き場（work/ops/l0p_<版>/）と、切り出し・変換・包んだ ONNX・途中の値の一覧（taps.json）・ログのパス。
 def paths(variant: str) -> dict:
     name = f"l0p_{variant}"
     d = C.OPS / name
@@ -129,6 +146,7 @@ def cut(variant: str) -> dict:
     import onnx
     import onnxruntime as ort
     from onnx import TensorProto, helper
+    # ① 元のグラフを読み、値の名前 → それを作る演算の番号（prod）の表を作る
     kind, mode = variant.split("_")
     src = SRC[kind]
     if not src.exists():
@@ -147,6 +165,7 @@ def cut(variant: str) -> dict:
         if t in prod and prod[t] not in need:
             need.add(prod[t])
             stack.extend(nodes[prod[t]].input)
+    # 要る演算を元の並びのまま残し（ONNX は並びが計算の順）、使う初期値・入力だけを持っていく
     keep = [nodes[i] for i in sorted(need)]
     used = {x for n in keep for x in n.input}
     inits = [t for t in g.initializer if t.name in used]
@@ -180,6 +199,7 @@ def cut(variant: str) -> dict:
                 pn = nodes[prod[srcn]].name if srcn in prod else srcn
                 t["node"] = f"sqrt({pn})"
                 t["label"] = ROLE.get(pn, "").replace("+eps", "√") or "√"
+    # ② 出力の宣言には形が要る。形の無いまま一度作って ORT（最適化なし）で全部 0 の入力を流し、形を知ってから作り直して保存する
     outs = list(CUT_OUTPUTS) + [t["tensor"] for t in taps if t["tensor"] not in CUT_OUTPUTS]
     # ---- 1 回目: 出力の形を知らないまま作り、ORT で回して形を知る ----
     def build(shapes: dict | None):
@@ -209,6 +229,7 @@ def cut(variant: str) -> dict:
 
 
 def convert(variant: str, redo: bool) -> dict:
+    """切り出した版を QAIRT で変換し、検査（記録だけ）して EPContext で包む。済んでいれば飛ばす。build_t16.convert と同じ手順。"""
     from app.pipeline import verify_artifacts, wrap_epctx
     from app.pipeline.build_vit_ctx import run_streaming
     P = paths(variant)
@@ -251,11 +272,13 @@ def rewrap(variant: str) -> dict:
     import onnx
     from onnx import TensorProto, helper
     from app.pipeline import wrap_epctx
+    # ① 変換のメタデータ（qnn-context-binary-utility の出力）から、実際にできたグラフの入出力の名前と形を読む
     P = paths(variant)
     meta = json.loads((P["build"] / f"{P['name']}_meta.json").read_text(encoding="utf-8"))
     g = meta["info"]["graphs"][0]["info"]
 
     def vi(t):
+        # メタデータの 1 つの入出力を、ONNX の入出力の宣言（float32 と形）にする。float32 でなければ止める
         info = t["info"]
         if info["dataType"] != "QNN_DATATYPE_FLOAT_32":
             raise SystemExit(f"{variant}: {info['name']} の型が float32 でない（{info['dataType']}）")
@@ -265,6 +288,7 @@ def rewrap(variant: str) -> dict:
     onnx.save(helper.make_model(helper.make_graph([], P["name"], ins, outs)), str(iop))
     bins = sorted(P["build"].glob("ctx_*/*.bin"))
     wrap_epctx.run(bins[0], iop, P["epctx"], P["name"], embed=False)
+    # ② 頼んだ出力のうち、消えたものを数える（RmsNorm にまとめられた所の途中の値）
     want = json.loads(P["taps"].read_text(encoding="utf-8"))
     asked = list(CUT_OUTPUTS) + [t["tensor"] for t in want["taps"] if t["tensor"] not in CUT_OUTPUTS]
     got = {o.name for o in outs}
@@ -289,6 +313,12 @@ def graph_inputs(path: Path) -> dict:
 
 
 def make_feeds(item: str, tabs: Tables) -> dict:
+    """評価と同じ問題のプロンプトの最初の 3 回ぶん（0〜47 番目）について、16 トークン版と 1 トークン版の入力を作る。
+
+    戻り値: {"ids", "t16": 3 回ぶんの入力, "t16_meta": 回ごとの画像の行, "t1": 8 行ぶんの入力, "t1_meta": 位置と画像か}。
+    past は 16 トークン版 plain を PC の CPU で順に回して作り（層 0・1 の K/V の行を hist に貯める）、1 トークン版にも同じ中身を右詰めで入れる。
+    こうすると 2 つの版に「同じ位置・同じ過去」の入力を渡せる。
+    """
     items = load_items()
     if item not in items:
         raise SystemExit(f"評価の job に {item} が無い")
@@ -324,6 +354,7 @@ def make_feeds(item: str, tabs: Tables) -> dict:
             new = np.asarray(o[nm], np.float32)[:, :, -16:, :]          # 16 トークン版の層 0・1 は新しい 16 行
             hist[(kv, ly)] = new if (kv, ly) not in hist else np.concatenate([hist[(kv, ly)], new], axis=2)
     out = {"ids": ids[:N_CHUNKS * 16], "t16": feeds16, "t16_meta": meta16, "t1": [], "t1_meta": []}
+    # 1 トークン版: T1_ROWS の位置 p ごとに、位置 0〜p−1 の K/V を past の右端に入れて、その 1 行だけを通す
     if paths("t1_plain")["final"].exists():
         f1 = Feeder(graph_inputs(paths("t1_plain")["final"]), tabs)
         for c, r in T1_ROWS:
@@ -343,6 +374,7 @@ def make_feeds(item: str, tabs: Tables) -> dict:
 # 比べる
 # ---------------------------------------------------------------------------
 def rel(a, b) -> float:
+    # 相対 L2（b が基準）。基準が 0 のときは、a も 0 なら 0、そうでなければ無限大にする（0 で割らない）
     a, b = np.asarray(a, np.float64), np.asarray(b, np.float64)
     nb = np.linalg.norm(b)
     if nb < 1e-12:
@@ -350,6 +382,7 @@ def rel(a, b) -> float:
     return float(np.linalg.norm(a - b) / nb)
 
 
+# 形の中で「行（T=16）の軸」がどこかを探す（[1,16,…] なら 1、[1,1,16,…] なら 2）。1 行版や見つからないときは None。
 def row_axis(shape: list, T: int):
     if T == 1:
         return None
@@ -362,6 +395,7 @@ def row_axis(shape: list, T: int):
 
 def compare(variant: str, npu: list, cpu: list, info: dict) -> list:
     """出力ごと・回ごとの相対 L2。16 トークン版は行ごとも"""
+    # 引数: npu・cpu = 回ごとの出力の辞書のリスト。戻り値: [{"b": 回, "out": 出力名, "rel": 相対 L2, "rows": 行ごと（16 行版）}]
     T = 16 if variant.startswith("t16") else 1
     rows = []
     for b, (on, oc) in enumerate(zip(npu, cpu)):
@@ -385,6 +419,7 @@ def compare(variant: str, npu: list, cpu: list, info: dict) -> list:
 def table(res: dict, feeds: dict) -> tuple[list, str]:
     """途中の値ごとに: 16 行版（文字の行・画像の行）と 1 行版（文字・画像）の相対 L2 の中央値を並べる"""
     def load_taps(v):
+        # 版 v の途中の値の一覧（taps.json）を読む。無ければ空
         p = paths(v)["taps"]
         return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {"taps": [], "shapes": {}}
     t16, t1 = res.get("t16_taps"), res.get("t1_taps")
@@ -405,6 +440,7 @@ def table(res: dict, feeds: dict) -> tuple[list, str]:
         if ax is not None:
             want[ax] = 1
         return list(s1) == want
+    # 16 行版は行ごとの差を「文字の行」と「画像の行」に分け、1 行版は回ごとの差を文字・画像に分けて、それぞれ中央値を取る
     by16 = {}
     for r in t16["compare"]:
         by16.setdefault(r["out"], []).append(r)
@@ -454,6 +490,7 @@ def first_jump(rows: list) -> dict | None:
 # ---------------------------------------------------------------------------
 # 本体
 # ---------------------------------------------------------------------------
+# 版ごとに切り出し → 変換。済んだ切り出しは使い回す。1 つの版の変換が失敗しても残りは作る。
 def cmd_build(variants: list, redo: bool, rec: dict):
     for v in variants:
         print(f"\n== {v}: 切り出し", flush=True)
@@ -473,6 +510,7 @@ def cmd_build(variants: list, redo: bool, rec: dict):
 
 
 def cmd_device(variants: list, item: str, rec: dict):
+    """入力を作り、版ごとに PC の CPU と端末の NPU に同じ入力を通して比べ、途中の値の表と「16 行版だけ大きくずれる最初の計算」を出す。"""
     tabs = Tables(TABLES)
     feeds = make_feeds(item, tabs)
     rec["item"] = item
@@ -494,6 +532,7 @@ def cmd_device(variants: list, item: str, rec: dict):
             continue
         ids = [f"b{i}" for i in range(len(fl))]
         print(f"\n== {v}: PC の CPU と端末の NPU（{len(fl)} 回ぶん）", flush=True)
+        # ① 包み直し（消えた出力を外す）→ PC の CPU → モデルを端末へ送って NPU（keep せずに 1 回で閉じる）
         rw = rewrap(v)
         cpu = Cpu(P["final"])
         oc = [cpu.run(fd) for fd in fl]
@@ -505,6 +544,7 @@ def cmd_device(variants: list, item: str, rec: dict):
         cmp_rows = compare(v, on, oc, {})
         res[v] = {"device": dev.first, "ort_run_ms": [o.get("_ort_run_ms") for o in on], "compare": cmp_rows,
                   "missing_on_npu": rw["missing"], "rmsnorm_in_dlc": rw["rmsnorm_in_dlc"]}
+        # ② 途中の値をそのまま保存する（7 段目の正規化の確かめは、この work/l0probe/ の値からその場で計算した。StudyMemo 10.7 節）
         np.savez(IO / f"{v}_npu.npz", **{f"b{b}__{k}": np.asarray(x) for b, o in enumerate(on) for k, x in o.items() if not k.startswith("_")})
         np.savez(IO / f"{v}_cpu.npz", **{f"b{b}__{k}": np.asarray(x) for b, o in enumerate(oc) for k, x in o.items()})
         # present の要点（小さいグラフでも同じずれが出るか）
@@ -530,6 +570,7 @@ def cmd_device(variants: list, item: str, rec: dict):
     return feeds
 
 
+# build（切り出しと変換）と device（端末で比べる）を流し、results/P5_t16/l0probe.json に書く。
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", nargs="?", default="all", choices=["all", "build", "device"])

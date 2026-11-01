@@ -44,6 +44,10 @@ import java.io.File
  * 使い方（PC の道具は `run_job(..., hold=True)` がこれを使う）:
  *
  *     adb shell am start -n org.edgeslm.vlm/org.edgeslm.demo.RunnerHoldActivity --es job jobs/job.json
+ *
+ * 使う段: 文章側の大きいモデル（約 1.5GB）を PC から job で動かすとき（EdgeSLM_AndroidVLM の Phase 3 以降の評価）。
+ * 入力: `--es job`（files/ からの相対パス）・`--es overrides`（省略可）。出力: なし（結果は RunnerService が files/out/ に書く）。
+ * （2026-10-18 学習用に追記）
  */
 class RunnerHoldActivity : Activity() {
 
@@ -55,8 +59,13 @@ class RunnerHoldActivity : Activity() {
     private var startElapsed = 0L
     private var finishing = false
 
+    /**
+     * ① 前に居続ける画面を作る → ② job の指定を確かめる → ③ RunnerService を起こす（画面が作り直されたときは起こさない）
+     * → ④ 1 秒ごとの見張り（poll）を始める。
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // ① 画面を消さない・ロックの上にも出す（どちらも「前にある」優先度を保つため）
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         if (Build.VERSION.SDK_INT >= 27) {
             setShowWhenLocked(true)          // スワイプのロックの上にも出す（ロックの裏だと「前にある」扱いにならない）
@@ -71,6 +80,7 @@ class RunnerHoldActivity : Activity() {
         }
         setContentView(label)
 
+        // ② job の指定を確かめ、job_id を読んでおく（結果のファイルが「この job のもの」かを見分けるのに使う）
         val base = getExternalFilesDir(null)
         jobRel = intent?.getStringExtra(RunnerActivity.EXTRA_JOB).orEmpty()
         if (base == null || jobRel.isBlank()) {
@@ -86,6 +96,7 @@ class RunnerHoldActivity : Activity() {
         val restored = savedInstanceState != null
         startWallMs = savedInstanceState?.getLong(KEY_START_WALL) ?: System.currentTimeMillis()
         startElapsed = savedInstanceState?.getLong(KEY_START_ELAPSED) ?: SystemClock.elapsedRealtime()
+        // ③ job を RunnerService へ渡す（RunnerActivity と同じ引き継ぎ方）。経過の時刻は作り直しをまたいで引き継ぐ
         if (!restored) {
             val svc = Intent(this, RunnerService::class.java).apply {
                 action = RunnerActivity.ACTION_RUN
@@ -95,15 +106,18 @@ class RunnerHoldActivity : Activity() {
             Log.i(TAG, "hold: starting RunnerService with job=$jobRel (screen stays in front)")
             startForegroundService(svc)
         }
+        // ④ 見張りを始める
         ui.post(poll)
     }
 
+    /** 画面が作り直されても経過の時刻を失わないよう、始めた時刻を保存する（onCreate の restored で読み戻す）。 */
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putLong(KEY_START_WALL, startWallMs)
         outState.putLong(KEY_START_ELAPSED, startElapsed)
     }
 
+    /** 見張りを止める（閉じた画面に表示し続けない）。 */
     override fun onDestroy() {
         ui.removeCallbacksAndMessages(null)
         super.onDestroy()
@@ -137,6 +151,7 @@ class RunnerHoldActivity : Activity() {
         val out = File(getExternalFilesDir(null) ?: return null, "out")
         for (kind in listOf("result", "describe", "error")) {
             val f = File(out, "last_$kind.json")
+            // ★describe・error は job_id を見ないので、前の job が 1 秒の余裕の中で終わっていると、それを拾いうる（推定。ふつうは起きない）
             if (!f.isFile || f.lastModified() + 1000 < startWallMs) continue      // 前の job の結果（1 秒の余裕）
             if (kind == "result" && jobId.isNotEmpty()) {
                 // job_id が違う結果（別の入口が同時に書いたもの）は見送る。書いている途中で読めなければ次の回に
@@ -152,6 +167,7 @@ class RunnerHoldActivity : Activity() {
         private const val TAG = RunnerActivity.TAG
         private const val KEY_START_WALL = "start_wall_ms"
         private const val KEY_START_ELAPSED = "start_elapsed_ms"
+        // 3 時間たっても結果が来なければ見張りをやめて閉じる（念のための上限。poll の中の注記）
         private const val HOLD_MAX_MS = 3L * 60L * 60L * 1000L       // 3 時間
     }
 }

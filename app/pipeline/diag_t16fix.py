@@ -27,6 +27,14 @@ A なら、変換をやめて書き直しを直す。
 5. 見張る値をグラフの順に並べ、**入力が同じなのに出力が違う最初の所**と、丸めた後の違いが何目盛りかを出す
 
 結果: `results/P5_t16/diag_t16fix.json`
+
+## 結果（2026-10-02、StudyMemo 10.7 節の 6 段目 (2)）
+
+- **B だった（書き直しは正しい）**: 入力が同じなのに丸めた後が 2 目盛り以上違う演算は 0 個。最初の違いは 6 番目の平均の 16 個の値のうち
+  1 個がちょうど 1 目盛りずれた所（丸める前の差 4e-7）。それが 6e-6 → 1e-5 → 2e-3 → 2e-2 → … → logits 18% と育った
+- 同じグラフでも ORT の最適化を切るだけで logits が 14% 変わる。→ 量子化したグラフの「2 つの実行の差」は、正しい計算どうしでも 1〜2 割出る。
+  差の割合で不具合を探せるのは、その水準をはっきり超える所だけ（教訓。版どうしは答えで比べる）
+- 入力: build_t16fix の元（SRC）と書き直した版（DST）の final_qdq。端末は使わない
 """
 from __future__ import annotations
 
@@ -40,6 +48,7 @@ from app.pipeline import vlm_common as C
 from app.pipeline.build_t16fix import DST, RES, SRC
 
 
+# 相対 L2（b が基準）。float64 で計算し、b が 0 でも割り算が壊れないように下限を 1e-30 にする。
 def rel(a, b) -> float:
     a, b = np.asarray(a, np.float64), np.asarray(b, np.float64)
     return float(np.linalg.norm(a - b) / max(np.linalg.norm(b), 1e-30))
@@ -47,6 +56,8 @@ def rel(a, b) -> float:
 
 def watch_list(m) -> list[dict]:
     """元のグラフから見張る値を、グラフの順（ONNX の演算は並びが計算の順）に選ぶ"""
+    # 戻り値: [{"kind": "mean"/"tanh", "idx": 種類ごとの番号, "node", "in", "out", "dq": 丸めた後の値の名前, "lsb": 1 目盛りの大きさ}]
+    # ① 初期値（scale など）と「値の名前 → それを入力に使う演算」の表を作る
     from onnx import numpy_helper
     inits = {t.name: t for t in m.graph.initializer}
     cons: dict[str, list] = {}
@@ -64,6 +75,7 @@ def watch_list(m) -> list[dict]:
         lsb = float(numpy_helper.to_array(sc).reshape(-1)[0]) if sc is not None else None
         return (dqs[0].output[0] if dqs else None), lsb
 
+    # ② ReduceMean と Tanh を順に拾い、その出力の後ろの Q → DQ を探して、丸めた後の値の名前と 1 目盛りを記録する
     out, i_mean, i_tanh = [], 0, 0
     for n in m.graph.node:
         if n.op_type not in ("ReduceMean", "Tanh"):
@@ -94,6 +106,7 @@ def make_feeds(ins: dict, run_first):
             k += 1
         else:
             rows.append((tid, None))
+    # 1 回目は system 文の頭から 16 行、2 回目は次の 16 行（文字 8・画像 8）。2 回目の past は run_first（元の版）の 1 回目の出力で作る
     fd = Feeder(ins, tabs)
     fd.reset()
     f0 = fd.feed(rows[:16])
@@ -129,11 +142,16 @@ def session(path, extra: list[str], opt: str):
 
 
 def run(s, feed: dict) -> dict:
+    # 1 回流して {出力の名前: 値} を返す（見張る値も出力に足してあるので一緒に返る）
     outs = [o.name for o in s.get_outputs()]
     return dict(zip(outs, s.run(None, feed)))
 
 
 def main():
+    """元と書き直した版に見張る値を足して同じ入力で流し、「書き直しの誤り（A）」か「丸めの境目のゆらぎ（B）」かを分ける。
+
+    グラフは 1 つ 1.1GB あるので、1 つずつ開いて流し、del と gc でメモリを返してから次を開く（全体でメモリ 6GB 前後）。
+    """
     import onnx
     C.utf8_stdout()
     t_all = time.time()
@@ -143,6 +161,7 @@ def main():
     W = watch_list(m)
     del m
     gc.collect()
+    # ① 見張る値（平均 242 個・tanh 70 個の入力・出力・丸めた後）の名前を、重ならないように並べる
     extra = []
     for w in W:
         extra += [w["in"], w["out"]] + ([w["dq"]] if w["dq"] else [])
@@ -156,6 +175,8 @@ def main():
     feeds, _ = make_feeds(ins, lambda f: run(s, f))
     res["orig"] = [run(s, f) for f in feeds]
     res["orig_again"] = [run(s, f) for f in feeds]
+    # 揺らした入力: 埋め込みに「全体の大きさ（二乗平均の平方根）× 1e-6」の正規乱数を足す（乱数の種は 0 で固定）。
+    # 書き直しの差がこれと同じくらいなら、書き直しのせいではなく、もともと小さな揺れに敏感なだけ（仮説 B）
     rng = np.random.default_rng(0)
     pert = []
     for f in feeds:
@@ -182,6 +203,7 @@ def main():
     gc.collect()
 
     # ---- 比べる ----
+    # ② 版 tag を基準 ref と比べる: logits の相対 L2（回ごと）と、見張る値ごとの相対 L2・丸めた後のずれの目盛りの数（1 回目の入力）
     def cmp(tag: str, ref: str = "orig") -> dict:
         b = 0
         A, B = res[tag][b], res[ref][b]

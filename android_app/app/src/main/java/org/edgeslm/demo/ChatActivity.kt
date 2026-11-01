@@ -48,6 +48,17 @@ import kotlin.concurrent.thread
  *
  * 1プロセスで NPU に置けるのは約1,710MiB。1.5B（1,481MiB）を開いたまま別の画面でモデルを開くと超える。
  * この画面はモデルを1つだけ持ち、切り替えるときは先に閉じてから開く。
+ *
+ * ★この写し（EdgeSLM_AndroidGemma4 のアプリと、それを複製した VLM のアプリ）は、デモの ChatActivity を
+ *   設定で Gemma 4 にも使えるようにした版（EdgeSLM_AndroidGemma4 の results/P4_20260920_device_only.md 4 章・4b 章）。
+ *   chat_models.json の tokenizer（qwen2 / gemma4）で、トークナイザ・会話の書式・止める ID・表示から消す印・題名が変わる。
+ *   Gemma 4 の画面は「Gemma4 チャット」。3 ターンの実測は 15.5〜15.6 tok/s・最初の文字まで 2.9 秒・読み込み 2.5 秒（P4 の 4 章）。
+ * 方式はデモと同じ task=generate_kv（1 ステップ 1 トークン・KV キャッシュを持ち回す）。
+ * 入力: 画面に打った文・候補のボタン。files/ の tokenizer/・models/ops/・inputs/・jobs/chat_models.json（無ければ Qwen の既定値）。
+ * 出力: 吹き出し・統計の行・記憶の残量の行。logcat（タグ EdgeSLMChat）に chat ready・chat answer・chat stats の 1 行ずつ。
+ * 動かし方: adb shell am start -n <アプリの ID>/org.edgeslm.demo.ChatActivity [--es model <key>] [--es prompts "文1|文2"]
+ *   （例: org.edgeslm.gemma4。EdgeSLM_AndroidGemma4 の app/pipeline/bench_latency.py も同じ書き方）
+ * （2026-10-18 学習用に追記）
  */
 class ChatActivity : Activity() {
 
@@ -67,15 +78,18 @@ class ChatActivity : Activity() {
     @Volatile private var handle: Long = 0L
     // ★トークナイザは設定で選ぶ（`chat_models.json` の `tokenizer`。既定は Qwen2）。
     //   Gemma 4 は BPE の作りが違うので別クラス（Gemma4Tokenizer）。ここでは使う3つの関数だけ持つ。
+    // enc: 文 → ID 列、dec: ID 列 → 文（確定した答え）、decStream: 生成中の表示（末尾の切れた文字を出さない）
     private class Tok(val enc: (String) -> IntArray, val dec: (List<Int>) -> String,
                       val decStream: (List<Int>) -> String)
 
     @Volatile private var tokenizer: Tok? = null
     @Volatile private var generating = false
+    // loading: モデルを開いている途中か（その間はモデルの切り替え・新しい会話・送信を止める）
     @Volatile private var loading = false
     private var models: List<ChatModel> = emptyList()
     private var modelIndex = 0
     private var systemPrompt = DEFAULT_SYSTEM
+    // ↓ 系統ごとの既定（下の companion）。loadConfig が chat_models.json を読んで差し替える
     private var tokKind = "qwen2"                      // "qwen2" / "gemma4"
     private var tmplFirst = QWEN_FIRST                 // 1ターン目の書式
     private var tmplNext = QWEN_NEXT                   // 2ターン目以降
@@ -95,6 +109,8 @@ class ChatActivity : Activity() {
     // 生成中の吹き出し
     private var liveBubble: TextView? = null
     private var liveStats: TextView? = null
+    // lastRev: 最後に読んだ途中経過の版。sendAt・firstTokenAt: 「最初の文字まで」と「全体」の時間を作る時刻（ミリ秒）。
+    // genThread: 生成のスレッド（画面を閉じるとき、抜けるのを待ってからセッションを閉じるのに使う）
     private var lastRev = -1L
     private var sendAt = 0L
     private var firstTokenAt = 0L
@@ -110,6 +126,10 @@ class ChatActivity : Activity() {
 
     // ================================================================= 起動
 
+    /**
+     * ① 画面を消さない設定 → ② chat_models.json を読む → ③ テスト用の引数（model・prompts）を読む
+     * → ④ 画面を作ってモデルを開く（開くのは別のスレッド）。
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // デモ中に画面が消えないようにする（この画面を表示している間だけ）
@@ -126,6 +146,8 @@ class ChatActivity : Activity() {
         openModel(modelIndex, first = true)
     }
 
+    /** 見張りを止め、生成中なら止めさせてから、別のスレッドでセッションを閉じる。 */
+    //   ★join は最長 5 秒。それより長く抜けなければ、使っている途中のセッションを閉じうる（推定。ふつう止めの印で数十 ms で抜ける）
     override fun onDestroy() {
         super.onDestroy()
         ui.removeCallbacksAndMessages(null)
@@ -187,6 +209,10 @@ class ChatActivity : Activity() {
         if (models.isEmpty()) models = defaultModels()
     }
 
+    /**
+     * chat_models.json が無いときの 2 つのモデル。1.5B は埋め込み表を CPU で引き（embed_table。NPU の上限に収めるため）、
+     * 位置 0 の KV を端末で作ったもので固定する（pin_pos0・pos0_kv）。どちらも zero_copy（README「1.5B のための拡張」）。
+     */
     private fun defaultModels(): List<ChatModel> = listOf(
         ChatModel("1.5b", "1.5B", "賢い", "Qwen2.5-1.5B-Instruct · 28層 · 1,481MB",
             JSONObject("""{"model":"models/ops/q15kc28_epctx.onnx",
@@ -201,9 +227,11 @@ class ChatActivity : Activity() {
 
     // ================================================================= 画面
 
+    /** dp → 画面の画素。 */
     private fun dp(v: Float): Int =
         TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, resources.displayMetrics).toInt()
 
+    /** 角の丸い背景（吹き出し・カード）。strokeColor を渡すと枠線を付ける。 */
     private fun rounded(color: Int, radiusDp: Float, strokeColor: Int? = null): GradientDrawable =
         GradientDrawable().apply {
             setColor(color)
@@ -211,6 +239,9 @@ class ChatActivity : Activity() {
             if (strokeColor != null) setStroke(dp(2f), strokeColor)
         }
 
+    /**
+     * 画面をコードで組む。上から: 題名と「新しい会話」・モデルのカード・状態の行・会話（吹き出し）・質問の候補・入力欄と送信／停止。
+     */
     private fun buildUi(): View {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -355,6 +386,7 @@ class ChatActivity : Activity() {
         return root
     }
 
+    /** 選んでいるモデルのカードを青く塗り、他は白に枠線にする。 */
     private fun refreshModelButtons() {
         val single = modelButtons.size == 1          // ★切り替えられないときは押せる見た目にしない
         modelButtons.forEachIndexed { i, card ->
@@ -371,6 +403,7 @@ class ChatActivity : Activity() {
         }
     }
 
+    /** 送信・候補・新しい会話・カード・停止の押せる／押せないを、いまの状態（読み込み中・生成中）に合わせてまとめて変える。 */
     private fun setBusy(busy: Boolean) {
         val ready = !busy && handle != 0L && tokenizer != null
         sendButton.isEnabled = ready
@@ -389,6 +422,7 @@ class ChatActivity : Activity() {
      * このアプリはそもそも INTERNET 権限を持たない（マニフェストに無い。端末の dumpsys でも確認）。
      */
     private fun networkLabel(): String {
+        // 機内モードの設定と、いま使える通信の有無の両方を見る（機内モードでも Wi-Fi だけ入れていることがある）
         val airplane = runCatching {
             Settings.Global.getInt(contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0) == 1
         }.getOrDefault(false)
@@ -416,6 +450,7 @@ class ChatActivity : Activity() {
 
     // ================================================================= 会話の吹き出し
 
+    /** 利用者の発話を右寄せの青い吹き出しで足す。 */
     private fun addUserBubble(text: String) {
         val tv = TextView(this).apply {
             this.text = text
@@ -432,6 +467,7 @@ class ChatActivity : Activity() {
         scrollDown()
     }
 
+    /** 答えの吹き出し（左寄せの白）と、その下の統計の行を足し、両方を返す（生成中に書き換える）。 */
     private fun addAssistantBubble(): Pair<TextView, TextView> {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val tv = TextView(this).apply {
@@ -457,6 +493,7 @@ class ChatActivity : Activity() {
         return tv to st
     }
 
+    /** 会話の間に灰色の小さな知らせを足す（モデルの切り替え・窓からあふれたこと など）。 */
     private fun addNotice(text: String) {
         chatList.addView(TextView(this).apply {
             this.text = text
@@ -472,6 +509,10 @@ class ChatActivity : Activity() {
 
     // ================================================================= モデルを開く・切り替える
 
+    /**
+     * セッションを開く・生成するときの job の土台。共通の設定（generate_kv・QNN の EP）に、モデルごとの job を浅く重ねる
+     * （入れ子は丸ごと差し替え）。
+     */
     private fun jobBase(m: ChatModel): JSONObject {
         val job = JSONObject().apply {
             put("job_id", "chat_ui")
@@ -494,6 +535,7 @@ class ChatActivity : Activity() {
         return job
     }
 
+    /** 実行時のパス（base_dir・native_lib_dir）を入れた JSON 文字列にする。 */
     private fun withPaths(job: JSONObject): String = JsonInject.addRuntimePaths(
         job.toString(),
         baseDir = getExternalFilesDir(null)!!.absolutePath,
@@ -501,6 +543,10 @@ class ChatActivity : Activity() {
         overridesJson = null
     )
 
+    /**
+     * モデルを開く（別のスレッドで）。① 辞書が未だなら読む → ② 今のセッションを先に閉じる → ③ 開く → ④ 結果を状態の行に出す。
+     * 開いている間は loading で他の操作を止める。読み込み中（数秒）は画面を切り替えないこと（lmkd。StudyMemo 4.3）。
+     */
     private fun openModel(index: Int, first: Boolean) {
         val m = models[index]
         loading = true
@@ -524,6 +570,7 @@ class ChatActivity : Activity() {
                     handle = 0L
                     NativeBridge.nativeDestroy(old)
                 }
+                // ③ 開く（strict で開けたかが「全ノード」の表示になる）
                 val t0 = System.currentTimeMillis()
                 val h = NativeBridge.nativeCreate(withPaths(jobBase(m)))
                 val loadMs = System.currentTimeMillis() - t0
@@ -565,6 +612,7 @@ class ChatActivity : Activity() {
         }
     }
 
+    /** カードを押したとき。会話を新しくしてから、もう一方のモデルを開く（KV キャッシュは開き直すと消えるため）。 */
     private fun switchModel(index: Int) {
         if (generating || loading || index == modelIndex) return
         modelIndex = index
@@ -577,6 +625,7 @@ class ChatActivity : Activity() {
     /** 記憶（KV の窓）の使用量を出す。あふれた後は「古い発話から忘れている」と伝える。 */
     private fun updateMemory(absPos: Int, cacheLen: Int) {
         if (cacheLen <= 0 || absPos <= 0) return
+        // used: キャッシュに入っている語の数（あふれた後は満杯のまま）。8 割を超えたら色を変えて知らせる
         val used = minOf(absPos, cacheLen)
         val over = absPos > cacheLen
         memoryView.visibility = View.VISIBLE
@@ -593,6 +642,7 @@ class ChatActivity : Activity() {
         )
     }
 
+    /** 会話を最初からにする。chatStarted を下ろすので、次の送信は System Prompt からの全文になり、キャッシュも作り直す。 */
     private fun newConversation(notice: Boolean) {
         if (generating) return
         chatStarted = false
@@ -606,6 +656,7 @@ class ChatActivity : Activity() {
 
     // ================================================================= 送る・生成する
 
+    /** テスト用: 次の文を自動で送る（インテント引数 prompts があるときだけ）。 */
     private fun sendNextAuto() {
         if (generating || loading || handle == 0L) return
         val next = autoPrompts.removeFirstOrNull() ?: return
@@ -617,21 +668,30 @@ class ChatActivity : Activity() {
      * （前のターンの KV キャッシュを持ち回す。KvDemoActivity と同じ規則）。
      */
     private fun delta(user: String): String =
+        // 1 ターン目は System Prompt から全部、2 ターン目からは差分だけ（前の答えを閉じる印＋次の発話）。デモの版と同じ規則
         if (!chatStarted) String.format(tmplFirst, systemPrompt, user) else String.format(tmplNext, user)
 
+    /**
+     * 発話を送る。① 差分のテンプレートで包んで ID 列にする → ② 吹き出しを用意 → ③ job を組む（キャッシュを持ち回す指定）
+     * → ④ いまの途中経過の版を覚えて見張りを始める → ⑤ 別のスレッドで生成し、終わったら finishTurn。
+     */
     private fun send(raw: String) {
         val text = raw.trim()
         val tok = tokenizer ?: return
         if (text.isEmpty() || generating || loading || handle == 0L) return
+        // ①
         val ids = tok.enc(delta(text))
         if (ids.isEmpty()) return
         inputEdit.setText("")
         addUserBubble(text)
         transcript.append("あなた: ").append(text).append("\n")
+        // ②
         val (bubble, stats) = addAssistantBubble()
         liveBubble = bubble
         liveStats = stats
         stats.text = "考えています…"
+        // ③ reuse_cache: 前のターンの KV を使う。reset_cache: 1 ターン目だけ捨てる。prompt_is_delta: 2 ターン目からは差分なので、
+        //   C++ が持っている履歴の後ろに足して前方一致を確かめる（KvDemoActivity の注記と同じ）
         val job = jobBase(models[modelIndex]).apply {
             put("max_new", MAX_NEW)
             put("prompt_ids", JSONArray().also { a -> ids.forEach { a.put(it) } })
@@ -646,9 +706,11 @@ class ChatActivity : Activity() {
         // ★いまの途中経過の版を覚えておき、それが変わるまで読まない。ジョブが始まる（begin で版が進み中身が空になる）前に
         //   読むと、前のターンのトークンを拾ってしまう（最初の版で「最初の文字まで 0.0 秒」と出た）
         lastRev = runCatching { JSONObject(NativeBridge.nativeProgress()).optLong("rev", -1L) }.getOrDefault(-1L)
+        // ④ 送った時刻を記録して見張りを始める（版は上の行で覚えた）
         sendAt = System.currentTimeMillis()
         firstTokenAt = 0L
         ui.post(poll)
+        // ⑤ handle をいまの値で受け取ってから渡す（生成中にモデルが替わらないよう、カードは生成中は押せない）
         val jobJson = withPaths(job)
         val h = handle
         genThread = thread(name = "edgeslm-chat-generate") {
@@ -686,12 +748,17 @@ class ChatActivity : Activity() {
         }
     }
 
+    /** 表示用: 止める印（<|im_end|>・<|endoftext|>）を消して前後の空白を落とす。 */
     private fun clean(s: String): String {
         var t = s
         for (x in stripTokens) t = t.replace(x, "")
         return t.trim()
     }
 
+    /**
+     * 生成が終わったとき（画面のスレッド）。① 答えを確定して吹き出しに出す → ② 速さ（中央値）・最初の文字まで・全体の時間を出す
+     * → ③ PC 用の 1 行のログ → ④ 窓からあふれたら一度だけ知らせる → テスト用の自動送信を続ける。止めたとき（cancelled）も会話は続く。
+     */
     private fun finishTurn(result: String) {
         generating = false
         val endAt = System.currentTimeMillis()
@@ -713,6 +780,7 @@ class ChatActivity : Activity() {
             bubble?.text = ans.ifEmpty { if (cancelled) "（停止しました）" else "（応答なし）" }
             turns += 1
             transcript.append("端末: ").append(ans).append("\n\n")
+            // ② 1 トークンの時間は中央値（平均は最初の外れ値に引きずられる）。NPU は OrtRun の中央値
             val med = r.optJSONObject("step_ms_stats")?.optDouble("median") ?: 0.0
             val ort = r.optJSONObject("ort_run_ms")?.optDouble("median") ?: 0.0
             val firstS = if (firstTokenAt > 0) (firstTokenAt - sendAt) / 1000.0 else Double.NaN
@@ -755,11 +823,14 @@ class ChatActivity : Activity() {
     }
 
     companion object {
+        // MAX_NEW: 1 回の答えの語の上限（KV 画面の対話モードと同じ 96）。止める ID・書式・消す印は系統ごと（下の QWEN_… と GEMMA_…）。
+        // 書式は String.format の形（%1$s・%2$s に System Prompt と発話が入る）。chat_models.json の template_first・template_next で差し替えられる
         private const val TAG = "EdgeSLMChat"
         private const val CONFIG_REL = "jobs/chat_models.json"
         private const val DEFAULT_SYSTEM = "あなたは車載アシスタントです。短く答えてください。"
         private const val MAX_NEW = 96
         private const val POLL_MS = 50L
+        // Qwen の止める ID: <|im_end|>（151645）と <|endoftext|>（151643）
         private val QWEN_STOP = listOf(151645, 151643)
         private val GEMMA_STOP = listOf(106, 1, 50)               // <turn|> / <eos> / <|tool_response>
         private const val QWEN_FIRST =

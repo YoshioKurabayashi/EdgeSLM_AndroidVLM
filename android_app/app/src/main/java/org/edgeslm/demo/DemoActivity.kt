@@ -43,6 +43,15 @@ import kotlin.concurrent.thread
  *    JNI コールバックを使わない理由は cpp/runner/progress.h の注記を参照
  *
  * 既存の検証経路（`am start --es job ...` → RunnerService）はこの画面とは独立に残してある。
+ *
+ * 方式: **窓ずらし**（毎回モデル全体を計算し直す。task=generate）。ランチャーの「EdgeSLM Demo」。
+ *   既定のモデルは qwen24ext_epctx.onnx（窓16 固定の最初の版）。demo_modes.json で窓64 などに切り替える（README「画面とモード」）。
+ *   速さは 33〜42 ms/token（README の表）。KV の画面（KvDemoActivity）とは下のボタンで行き来する。
+ * 使う段: EdgeSLM_AndroidDemo の D1（端末の中で生成を回す。StudyMemo 1 章）と、画面の見せ方（StudyMemo 4 章）。
+ * 入力: 画面に打った文。files/ の tokenizer/・models/ops/・jobs/demo_override.json・jobs/demo_modes.json。
+ * 出力: 画面の表示（プロンプトは灰色、生成した分は黒の太字）と logcat（タグ EdgeSLMDemo）。
+ * 動かし方: adb shell am start -n org.edgeslm.demo/.DemoActivity（またはランチャーのアイコン）。
+ * （2026-10-18 学習用に追記）
  */
 class DemoActivity : Activity() {
 
@@ -54,6 +63,8 @@ class DemoActivity : Activity() {
     private lateinit var stopButton: Button
     private lateinit var outputScroll: ScrollView
 
+    // handle: 開いているセッション（0 なら未だ開いていない）。tokenizer: 読み込み済みの辞書。generating: 生成中か。
+    //   どれも作業スレッドが書き、画面のスレッドが読むので @Volatile
     @Volatile private var handle: Long = 0L
     @Volatile private var tokenizer: Qwen2Tokenizer? = null
     @Volatile private var generating = false
@@ -64,10 +75,12 @@ class DemoActivity : Activity() {
     @Volatile private var modeIndex = 0
     private var modeRow: LinearLayout? = null
 
+    // promptText: 灰色で描くプロンプト。lastRev: 最後に読んだ途中経過の版（rev が変わったときだけ描き直す）
     private var promptText: String = ""
     private var lastRev: Long = -1L
     private val ui = Handler(Looper.getMainLooper())
 
+    /** 画面を作り、辞書とモデルの読み込みを別のスレッドで始める（読み込みは数秒かかるので画面のスレッドを止めない）。 */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         modes = loadModes()
@@ -76,6 +89,9 @@ class DemoActivity : Activity() {
         thread(name = "edgeslm-init") { initSession() }
     }
 
+    /** 画面を閉じるときは、生成を止めてからセッションを閉じる（NPU のメモリを返す）。 */
+    //   ★生成の途中で閉じると、nativeCancel は印を立てるだけなので、作業スレッドがまだ使っているセッションを
+    //     nativeDestroy で壊しうる（推定。switchTo は生成中なら何もしないが、onDestroy には同じ守りが無い）
     override fun onDestroy() {
         if (handle != 0L) {
             NativeBridge.nativeCancel(handle)
@@ -87,8 +103,13 @@ class DemoActivity : Activity() {
 
     // ------------------------------------------------------------------ 画面
 
+    /**
+     * 画面をコードで組む（XML を使わない）。上から: 題名・状態の行・モード行（あれば）・入力欄・定型プロンプト・
+     * Generate／Stop・KV 版へのボタン・出力・速さの行。
+     */
     private fun buildUi(): View {
         val dp = resources.displayMetrics.density
+        // dp → 画面の画素。端末の画素密度に合わせて大きさをそろえる
         fun px(v: Int) = (v * dp).toInt()
 
         val root = LinearLayout(this).apply {
@@ -199,6 +220,10 @@ class DemoActivity : Activity() {
         return root
     }
 
+    /**
+     * ボタンの押せる・押せないと状態の行をまとめて変える。
+     * Generate は「暇・モデルが開いている・辞書がある」ときだけ、Stop は生成中だけ押せる。status が null なら状態の行は変えない。
+     */
     private fun setBusy(busy: Boolean, status: String?) {
         generateButton.isEnabled = !busy && handle != 0L && tokenizer != null
         stopButton.isEnabled = busy && generating
@@ -242,10 +267,12 @@ class DemoActivity : Activity() {
 
         try {
             ui.post { setBusy(true, "トークナイザを読み込み中…") }
+            // ① 辞書を読む（files/tokenizer/）
             val t0 = System.currentTimeMillis()
             val tok = Qwen2Tokenizer.load(File(base, "tokenizer"))
             val tokMs = System.currentTimeMillis() - t0
 
+            // ② job の土台に実行時のパスを入れてモデルを開く（772MB。strict で開けたかが「全ノード NPU」の表示になる）
             ui.post { setBusy(true, "モデルを読み込み中…（772MB。初回のみ数秒）") }
             val config = JsonInject.addRuntimePaths(
                 baseJobJson(),
@@ -266,6 +293,7 @@ class DemoActivity : Activity() {
             handle = h
             tokenizer = tok
 
+            // ③ どこで動いているか（backend）と、CPU への逃がしを禁止して開けたか（strict）を状態の行に出す。配置は推測しない
             val backend = describe.optString("backend", "?")
             val strict = describe.optBoolean("strict_no_cpu_fallback", false)
             ui.post {
@@ -301,6 +329,7 @@ class DemoActivity : Activity() {
      * 窓を広げるとパディングを塞ぐかどうかが効いてくるため必要になる
      * （fp32 実測: W=64 でマスク無しだと 10プロンプト中 3件しか正解と一致しない）。
      */
+    // 手順: ① 既定の job（task=generate・既定のモデル・QNN の EP）→ ② demo_override.json を浅く重ねる → ③ 選んだモードを重ねる
     private fun baseJobJson(): String {
         val job = JSONObject().apply {
             put("job_id", "demo_ui")
@@ -310,10 +339,12 @@ class DemoActivity : Activity() {
                 put("provider", "QNN")
                 put("backend", "libQnnHtp.so")
                 put("options", JSONObject().apply {
+                    // QNN の EP の設定: 入出力の量子化・逆量子化を CPU 側に残さない（"0"）・NPU の優先度を高く
                     put("offload_graph_io_quantization", "0")
                     put("qnn_context_priority", "high")
                 })
                 put("session", JSONObject().apply {
+                    // ORT のセッションの設定: CPU のスレッドは 1 本（計算は NPU なので CPU は待つだけ）・ログは警告以上（3）
                     put("intra_op_num_threads", 1)
                     put("log_severity_level", 3)
                 })
@@ -371,6 +402,7 @@ class DemoActivity : Activity() {
      */
     private fun switchMode(index: Int) {
         if (generating || index == modeIndex || index !in modes.indices) return
+        // 先に新しいモードの番号にしておく（baseJobJson が modeIndex を読むため）。開けなかったら prev に戻す
         val prev = modeIndex
         modeIndex = index
         setBusy(true, "${modes[index].first} に切り替え中…")
@@ -414,6 +446,10 @@ class DemoActivity : Activity() {
 
     // ---------------------------------------------------------------- 生成
 
+    /**
+     * Generate を押したとき。① 打った文を ID 列にする → ② job を組む → ③ 途中経過の見張りを始め、別のスレッドで生成する
+     * → ④ 終わったら確定した統計を出す。
+     */
     private fun onGenerate() {
         val tok = tokenizer ?: return
         if (handle == 0L || generating) return
@@ -421,16 +457,20 @@ class DemoActivity : Activity() {
         val text = promptEdit.text.toString()
         if (text.isBlank()) return
 
+        // ① 端末のトークナイザで ID 列にする（PC は使わない）
         val ids = tok.encode(text)
         if (ids.isEmpty()) return
 
         promptText = text
+        //   ★-1 から始めるので、ジョブが始まる前の一瞬に前の回の語を読みうる（チャット画面では送る直前の版を覚えて直した。
+        //     EdgeSLM_AndroidDemo の StudyMemo 4.2。この画面では表示が次の版ですぐ上書きされるので、目に見える害は小さい。推定）
         lastRev = -1L
         generating = true
         setBusy(true, null)
         renderOutput(emptyList())
         statsView.text = "…"
 
+        // ② 土台の job に、プロンプトの ID 列・作る語の上限・詰め物の ID・止める ID を足す
         val job = JSONObject(baseJobJson()).apply {
             put("max_new", MAX_NEW)
             put("pad_id", PAD_ID)
@@ -444,6 +484,7 @@ class DemoActivity : Activity() {
             overridesJson = null
         )
 
+        // ③ 見張り（50ms ごと）を始めてから、生成を別のスレッドで動かす（nativeRunJob は終わるまで戻らない）
         ui.post(pollProgress)
         thread(name = "edgeslm-generate") {
             val result = NativeBridge.nativeRunJob(handle, jobJson)
@@ -489,6 +530,7 @@ class DemoActivity : Activity() {
     /** プロンプトを灰色、生成された分を黒の太字で描く（どこからが生成かを一目で分かるように）。 */
     private fun renderOutput(newIds: List<Int>) {
         val tok = tokenizer ?: return
+        // decodeStreaming は末尾の切れた UTF-8 を持ち越すので、日本語でも途中で文字化けを見せない
         val generated = if (newIds.isEmpty()) "" else tok.decodeStreaming(newIds)
         val sb = SpannableStringBuilder()
         sb.append(promptText)
@@ -510,6 +552,7 @@ class DemoActivity : Activity() {
                 statsView.text = if (err == "cancelled") "中断しました" else "失敗: $err"
                 return
             }
+            // 速さは 1 語ごとの実時間の中央値から出す（平均は最初の外れ値に引きずられる。StudyMemo 1.4）。OrtRun は NPU の計算の分
             val step = r.optJSONObject("step_ms_stats")
             val ort = r.optJSONObject("ort_run_ms")
             val n = r.optJSONArray("new_ids")?.length() ?: 0
@@ -526,12 +569,15 @@ class DemoActivity : Activity() {
     }
 
     companion object {
+        // MODEL_REL: 既定のモデル（窓16 固定の最初の版。README「画面の中のモード切り替え」）
         private const val TAG = "EdgeSLMDemo"
         private const val MODEL_REL = "models/ops/qwen24ext_epctx.onnx"
         // これがあれば上記の既定を上書きする（モデル差し替えに再ビルドを要らなくするため）
         private const val OVERRIDE_REL = "jobs/demo_override.json"
         // これがあれば画面にモード切り替えが出る。無ければ従来どおり単一モード
         private const val MODES_REL = "jobs/demo_modes.json"
+        // POLL_MS: 途中経過を読む間隔。MAX_NEW: 1 回に作る語の上限。
+        // PAD_ID 151643 は <|endoftext|>（窓の空きを詰める語）、STOP_IDS は <|im_end|>（151645）と <|endoftext|>（Qwen2.5 の追加トークン）
         private const val POLL_MS = 50L
         private const val MAX_NEW = 24
         private const val PAD_ID = 151643

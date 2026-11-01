@@ -38,6 +38,13 @@ SRQ の丸めの揺れ（B↔C と同じ 0.1 前後）に埋もれて判定で�
 
 `results/P1_check_wiring/wiring_b{budget}_srq-{both|on|off}.json`（数値）。記録の md は人が書く。
 初回の結果（2026-09-27）は `wiring.json` として残してある（上書きしない）。
+
+結果のまとめ（`results/P1_20260928_pc_eval.md` 2・8.1 節、StudyMemo 6.2〜6.4 節）:
+- A↔B は差 0（√1536 を掛けない・PLE は pad の行・因果マスク・連番の位置、という読みは正しい）
+- SRQ なしの B↔C は最大 2.6e-5（1 トークンずつにしても KV キャッシュと位置の数え方は正しい）
+- 入口の範囲の外に出るのは 1 画像あたり 1〜2 個で、SRQ なしで切り詰めても答えは同じ → 入口の較正のやり直しは不要
+
+動かす venv は Phase 1 の EdgeSLM_MultiHead_Multi（HF の Gemma 4 を CUDA で動かす）。入口の範囲は onnx_scales で端末のグラフから読む。
 """
 from __future__ import annotations
 
@@ -53,6 +60,7 @@ from app.pipeline import onnx_scales
 from app.pipeline import vlm_common as C
 
 RES = C.RESULTS / "P1_check_wiring"
+# 既定の 4 問（車・合成の掲示・In-the-Wild・汎用 VQA の 4 つの出どころから 1 問ずつ）
 DEFAULT_IDS = "car_02a,syn_notice_La,wild_10,vg_00"
 
 
@@ -62,6 +70,7 @@ def compare(a, b, img_span: tuple[int, int] | None = None) -> dict:
     rel_l2_argmax は差が最大だった位置。img_span（画像トークンの最初と最後の位置）を渡すと、
     その位置が「画像より前の文章」「画像」「画像より後の文章」のどれかも記録する
     （初回の結果で「最大の差は共通の system の文で起きている」と推定したのを確かめるため）。
+    a・b は [T,V]（T = プロンプトの長さ、V = 語彙 262,144）の float の logits。a を基準にした相対 L2 を位置ごとに取る。
     """
     rel = (a - b).norm(dim=-1) / a.norm(dim=-1).clamp_min(1e-12)
     top = (a.argmax(-1) == b.argmax(-1)).float()
@@ -85,6 +94,7 @@ def entry_clip(model, ranges: dict | None):
     if ranges is None:
         yield
         return
+    # 文章側の PLE の射影の関数を、一時的に「入力を prescaled の範囲で切る → 元の計算 → ple_all の範囲で切る」関数に差し替える
     lm = model.model.language_model
     orig = lm.project_per_layer_inputs
     pa = ranges.get("ple_all_QuantizeLinear")
@@ -94,6 +104,7 @@ def entry_clip(model, ranges: dict | None):
     ps_lo, ps_hi = (ps["lo"] * C.TEXT_HIDDEN ** 0.5, ps["hi"] * C.TEXT_HIDDEN ** 0.5) if ps else (None, None)
 
     def clipped(inputs_embeds, per_layer_inputs=None):
+        # PLE の射影の代わりに呼ばれる: 入力を prescaled の範囲で切ってから元の計算をし、出力（ple_all）も範囲で切る
         x = inputs_embeds.clamp(ps_lo, ps_hi) if ps else inputs_embeds
         y = orig(x, per_layer_inputs)
         return y.clamp(pa["lo"], pa["hi"]) if pa else y
@@ -117,6 +128,7 @@ def clip_inputs(emb, ple, ranges: dict | None):
     return emb, ple
 
 
+# 引数: emb・ple = 端末と同じ入れ方の inputs_embeds と ple_tok、ranges = 入口の範囲（None なら切り詰めない）。戻り値: 答えの文字列。
 def greedy_device_style(model, proc, emb, ple, ranges, max_new: int = 48) -> str:
     """端末と同じ入れ方で、プロンプトを一度に食わせてから 1 トークンずつ生成する（切り詰めの有無で比べる用）。
 
@@ -129,6 +141,7 @@ def greedy_device_style(model, proc, emb, ple, ranges, max_new: int = 48) -> str
     return H.decode(proc, g["ids"])
 
 
+# 値の並び x のうち、範囲 rng（lo〜hi）の外にある割合（範囲が無ければ None）。
 def outside(x, rng: dict | None) -> float | None:
     if rng is None:
         return None
@@ -137,7 +150,13 @@ def outside(x, rng: dict | None) -> float | None:
 
 def run_one(model, proc, it: dict, budget: int, system: str, device: str, ranges: dict | None,
             do_values: bool) -> dict:
+    """1 問について、A（HF の本来の経路）・B（端末と同じ入れ方を一度に）・C（1 トークンずつ）の logits を比べる。
+
+    引数: it = 評価の一覧の 1 問、budget = 画像トークン数、system = system の文、ranges = 端末の入口の範囲、
+    do_values = 画像の位置の値域・範囲の外の割合・切り詰めの影響も測るか。戻り値: 比べの結果の辞書（JSON の runs の 1 つ）。
+    """
     import torch
+    # ① 端末と同じ固定の格子に収めて、HF のプロセッサで入力を作る（画像トークンの数が予算と同じかも確かめる）
     img = H.prepare_image(Image.open(C.EVAL_DIR / it["image"]), "fixed", budget)
     inputs, n_img, _ = H.build_inputs(proc, img, it["question"], budget, system, device, expect_exact=True)
     T = int(inputs["input_ids"].shape[1])
@@ -146,6 +165,7 @@ def run_one(model, proc, it: dict, budget: int, system: str, device: str, ranges
     t0 = time.time()
     with torch.no_grad():
         ref = model(**inputs).logits[0].float()                                  # A
+    # ② 画像の特徴を取り出し、端末と同じ入れ方の inputs_embeds・ple_tok を作る（画像の位置は特徴そのもの、PLE は pad の行）
     feats = H.image_features(model, inputs)
     emb, ple, img_mask = H.device_style_embeds(model, inputs["input_ids"], feats)
     bat, _ = H.device_style_step(model, emb, ple, None)                         # B（一度に）
@@ -155,10 +175,12 @@ def run_one(model, proc, it: dict, budget: int, system: str, device: str, ranges
         lg, pkv = H.device_style_step(model, emb[:, t:t + 1], ple[:, t:t + 1], pkv)
         steps.append(lg[-1].float())
     stp = torch.stack(steps)
+    # ③ 3 通りを 2 つずつ比べる（A↔B は入れ方、B↔C は 1 トークンずつの持ち越し、A↔C は全体）
     r = {"id": it["id"], "T": T, "n_image_tokens": n_img, "image_span": list(span), "sec": round(time.time() - t0, 1),
          "A_vs_B": compare(ref, bat, span), "B_vs_C": compare(bat, stp, span), "A_vs_C": compare(ref, stp, span)}
 
     if do_values:
+        # ④ 値域: 文章の位置と画像の位置に分けて、入口の 3 点（inputs_embeds・ple_tok・ple_all）の値の要約と範囲の外の割合を取る
         lm = model.model.language_model
         with torch.no_grad():
             ple_all = lm.project_per_layer_inputs(emb, ple)
@@ -195,6 +217,7 @@ def run_one(model, proc, it: dict, budget: int, system: str, device: str, ranges
 
 
 def main():
+    """既定の 4 問を SRQ あり → なし（--srq で選ぶ）の順に流し、A・B・C の比べと値域・切り詰めの影響を JSON に書く。"""
     ap = argparse.ArgumentParser()
     ap.add_argument("--ids", default=DEFAULT_IDS)
     ap.add_argument("--budget", type=int, default=70, choices=sorted(C.FIXED_GRIDS))
@@ -208,6 +231,7 @@ def main():
     man = json.loads((C.EVAL_DIR / "manifest.json").read_text(encoding="utf-8"))
     by_id = {it["id"]: it for it in man["items"]}
     items = [by_id[i] for i in a.ids.split(",")]
+    # ① 端末の文章グラフ（かたまり A）があれば、入口の量子化の点の範囲を読む（無ければ値域の比べを省く）
     ranges = None
     if C.DEVICE_CHUNK_A_QDQ.exists():
         ranges = onnx_scales.read_quant_points(C.DEVICE_CHUNK_A_QDQ, onnx_scales.ENTRY_NAMES)

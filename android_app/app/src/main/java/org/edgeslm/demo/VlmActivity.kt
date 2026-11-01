@@ -57,6 +57,16 @@ import kotlin.concurrent.thread
  *
  * ## 設定: `files/jobs/vlm_demo.json`（PC の setup_vlm_demo.py が書く）
  *
+ * ## このファイルの位置づけ（2026-10-18 学習用に追記）
+ *
+ * 使う段: Phase 3（端末で写真から答えまで）と Phase 5（まとめ読み・画像エンコーダを開いたまま）。
+ *   解説は DoC/StudyMemo の 9 章（端末でつなぐ）・11 章（写真から答えまで）。
+ * 実測（StudyMemo 11.2 節。Phase 5 の動画のログ）: 文章側を開く 2.3 秒、写真の読み取り 0.33 秒（画像エンコーダの NPU 258ms）、
+ *   質問してから最初の文字まで 0.78〜0.93 秒、答えの 1 トークン 77.5〜81.5ms（中央値）。
+ * 入力: カメラの写真（またはテスト用の --es image）と質問。files/ の jobs/vlm_demo.json・tokenizer/・models/ops/。
+ * 出力: 画面の答えと 1 行の統計。logcat（タグ EdgeSLMVlm）の「vlm image」「vlm stats」などの行（PC の道具が読む）。
+ *   途中のファイル: inputs/vlm/cam.rgb（RGB）・inputs/vlm/cam_pix.bin（pixel_values）・out/vlm/（特徴）。
+ *
  * ## テスト用のインテント引数（画面の操作の代わり。PC の device_vlm uicheck が使う）
  *
  *     am start -n org.edgeslm.vlm/org.edgeslm.demo.VlmActivity --es image inputs/vlm/test.jpg --es question "何が写っていますか？"
@@ -80,6 +90,9 @@ class VlmActivity : Activity() {
     private val suggestionButtons = ArrayList<Button>()
 
     // ---- 設定 ----
+    // ↓ vlm_demo.json の値（無ければ既定）。grid: 画像のパッチの格子（縦 21 × 横 30 ＝ 630）。
+    //   nImageTokens: 画像トークンの数（既定は格子の縦横をそれぞれ 3 で割った数の積 ＝ 7 × 10 ＝ 70）。
+    //   stopIds: <turn|>（106）・<eos>（1）・<|tool_response>（50）
     private var cfg = JSONObject()
     private var systemPrompt = DEFAULT_SYSTEM
     private var grid = intArrayOf(21, 30)
@@ -101,6 +114,7 @@ class VlmActivity : Activity() {
     private var imageSec = 0.0                           // 読み取り全体（読み込み・前処理・画像エンコーダ）の秒
     private var vitNpuMs = 0.0                           // 画像エンコーダの NPU の時間（ort_run_ms）
     private var chatStarted = false                      // この写真について 1 問目を送ったか
+    // vitSeq: 画像エンコーダの job_id を毎回変えるための通し番号。lastRev・askAt・firstTokenAt: 途中経過の版と「最初の文字まで」の時刻
     private var vitSeq = 0
     private val ui = Handler(Looper.getMainLooper())
     private var lastRev = -1L
@@ -111,6 +125,7 @@ class VlmActivity : Activity() {
 
     // ================================================================= 起動
 
+    /** ① 設定を読む → ② 画面を作る → ③ 文章側のモデルを開く（別のスレッド）→ ④ 作り直しのときやテスト用の写真があれば読み取る。 */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -131,12 +146,14 @@ class VlmActivity : Activity() {
         }
     }
 
+    /** カメラの間に画面が作り直されても写真を読み直せるよう、保存先と「読み取り済みか」を残す。 */
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         photoUri?.let { outState.putString(KEY_PHOTO, it.toString()) }
         outState.putBoolean(KEY_HAS_PHOTO, featuresRel != null)
     }
 
+    /** 見張りを止め、生成中なら止めさせてから、別のスレッドで文章側のセッションを閉じる（ChatActivity と同じ作り）。 */
     override fun onDestroy() {
         super.onDestroy()
         ui.removeCallbacksAndMessages(null)
@@ -171,6 +188,7 @@ class VlmActivity : Activity() {
 
     // ================================================================= 画面
 
+    /** dp → 画面の画素。 */
     private fun dp(v: Float): Int =
         TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, resources.displayMetrics).toInt()
 
@@ -191,14 +209,17 @@ class VlmActivity : Activity() {
         return handled
     }
 
+    /** 画面が前に出た・裏に回ったをログに残す（上の dispatchTouchEvent と同じく、タップが効かなかった件の切り分け用）。 */
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         Log.i(TAG, "vlm focus: $hasFocus")
     }
 
+    /** 角の丸い背景。 */
     private fun rounded(color: Int, radiusDp: Float): GradientDrawable =
         GradientDrawable().apply { setColor(color); cornerRadius = dp(radiusDp).toFloat() }
 
+    /** 画面をコードで組む。上から: 題名・説明・状態・写真・写真を撮る・質問の候補・入力欄と質問する／停止・答え・統計。 */
     private fun buildUi(): View {
         scroll = ScrollView(this).apply { setBackgroundColor(BG); isFillViewport = true }
         val root = LinearLayout(this).apply {
@@ -331,6 +352,7 @@ class VlmActivity : Activity() {
 
     // ================================================================= 文章側のモデル
 
+    /** 文章側の job の土台（generate_kv・QNN の EP）に、vlm_demo.json の text（モデル・表の場所など）を浅く重ねる。 */
     private fun jobBase(): JSONObject {
         val job = JSONObject().apply {
             put("job_id", "vlm_ui")
@@ -343,6 +365,7 @@ class VlmActivity : Activity() {
         return job
     }
 
+    /** QNN の EP の設定（文章側と画像エンコーダで共通）。 */
     private fun epJson() = JSONObject().apply {
         put("provider", "QNN")
         put("backend", "libQnnHtp.so")
@@ -356,10 +379,12 @@ class VlmActivity : Activity() {
         })
     }
 
+    /** 実行時のパス（base_dir・native_lib_dir）を入れた JSON 文字列にする。 */
     private fun withPaths(job: JSONObject): String = JsonInject.addRuntimePaths(
         job.toString(), baseDir = getExternalFilesDir(null)!!.absolutePath,
         nativeLibDir = applicationInfo.nativeLibraryDir, overridesJson = null)
 
+    /** 辞書と文章側のモデルを別のスレッドで開く（約 2.3 秒）。開けたら、画像エンコーダを先に開く job を出す（warmVit）。 */
     private fun openTextModel() {
         if (cfg.length() == 0) { setBusy(); return }
         loading = true
@@ -392,6 +417,9 @@ class VlmActivity : Activity() {
 
     // ================================================================= 写真
 
+    /**
+     * カメラアプリを呼ぶ。保存先（MediaStore の Pictures/VLMDemo）を先に作って渡すので、このアプリはカメラの権限を持たなくてよい。
+     */
     private fun takePhoto() {
         if (generating || reading) return
         val values = ContentValues().apply {
@@ -416,6 +444,7 @@ class VlmActivity : Activity() {
         }
     }
 
+    /** カメラから戻ったとき。撮れていれば読み取り、撮らずに戻ったら空の保存先を消す。 */
     @Deprecated("startActivityForResult の結果（androidx を使わないため従来の API）")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
@@ -442,11 +471,13 @@ class VlmActivity : Activity() {
         thread(name = "edgeslm-vlm-read") {
             val t0 = System.currentTimeMillis()
             try {
+                // ① 写真を読み込む（EXIF の向きを反映し、大きい写真は読むときに縮める）
                 val bmp = loadBitmap(uri) ?: throw IllegalStateException("写真を読めませんでした")
                 ui.post { photoView.setImageBitmap(bmp); photoNote.text = "${bmp.width}×${bmp.height}" }
                 val base = getExternalFilesDir(null)!!
                 File(base, "inputs/vlm").mkdirs()
                 File(base, "out/vlm").mkdirs()
+                // ② C++ に渡すため、画素を R・G・B の 3 バイトずつ並べたファイルにする（ARGB の int から上位の A を捨てて取り出す）
                 // RGB のバイト列（行の詰め物なし）
                 val w = bmp.width
                 val h = bmp.height
@@ -461,6 +492,7 @@ class VlmActivity : Activity() {
                 }
                 File(base, "inputs/vlm/cam.rgb").writeBytes(rgb)
                 val t1 = System.currentTimeMillis()
+                // ③ 前処理: 横 480 × 縦 336 に収めて黒い余白 → 16×16 のパッチ 630 個 → pixel_values [630,768]（768 ＝ 16×16×3）
                 // 前処理（C++。PIL の BICUBIC と同じ）
                 val prepJob = JSONObject().apply {
                     put("rgb", "inputs/vlm/cam.rgb"); put("width", w); put("height", h)
@@ -481,6 +513,7 @@ class VlmActivity : Activity() {
                     while (loading && System.currentTimeMillis() < until) Thread.sleep(50)
                     Log.i(TAG, "vlm read: waited for text model ${System.currentTimeMillis() - t2}ms (loading=$loading)")
                 }
+                // ④ 画像エンコーダ（別プロセス）で特徴 [70,1536] を作り、そのファイルの場所を受け取る
                 val t2v = System.currentTimeMillis()
                 // 画像エンコーダ（別プロセスの RunnerService2 に job を渡して、結果のファイルを待つ）
                 val r = runVit(base)
@@ -489,6 +522,7 @@ class VlmActivity : Activity() {
                 if (!r.optBoolean("ok", false) || outRel.isNullOrEmpty()) throw IllegalStateException("画像エンコーダに失敗: ${r.toString().take(300)}")
                 vitNpuMs = rec?.optDouble("ort_run_ms", 0.0) ?: 0.0
                 vitStrict = r.optJSONObject("describe")?.optBoolean("strict_no_cpu_fallback", false) ?: false
+                // ⑤ 時間を記録し、質問できる状態にする
                 val t3 = System.currentTimeMillis()
                 imageSec = (t3 - t0 - (t2v - t2)) / 1000.0      // 文章側のモデルを待った分は含めない（読み取りそのものの時間）
                 Log.i(TAG, String.format(java.util.Locale.ROOT,
@@ -543,6 +577,9 @@ class VlmActivity : Activity() {
     }
 
     /** 画像エンコーダの job を別プロセスで動かし、結果（out/last_result.json）を待つ */
+    // ★2026-10-18 補足: EdgeSLM_AndroidVLMSpec では、先に開く job（warmVit）と写真の読み取りの job がほぼ同時に届くと、
+    //   先の job の Service が止まるとき（onDestroy の nativeCancel）に後の job が cancelled で止まる件が見つかり、
+    //   画面の側で待つ（waitWarm）直しが入った。この版（VLM）にはその直しが入っていない（VLMSpec の VlmActivity の注記）
     private fun runVit(base: File): JSONObject {
         val jobId = "vlm_vit_${System.currentTimeMillis()}_${vitSeq++}"
         val job = JSONObject().apply {
@@ -560,6 +597,7 @@ class VlmActivity : Activity() {
         File(base, "jobs").mkdirs()
         File(base, "jobs/vlm_vit.json").writeText(job.toString())
         val resultFile = File(base, "out/last_result.json")
+        // 前の結果を消してから頼み、job_id が一致する結果が出るまで 40ms ごとに見る（最長 VIT_TIMEOUT_MS）
         resultFile.delete()
         val svc = Intent(this, RunnerService2::class.java).apply {
             action = RunnerActivity.ACTION_RUN
@@ -589,6 +627,7 @@ class VlmActivity : Activity() {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        // 2 の累乗で間引いて読む（短い辺が MIN_SHORT_SIDE 以上残る範囲で一番粗く）。例: 4032×3024 は 1/4（StudyMemo 11.2）
         var sample = 1
         while (minOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= MIN_SHORT_SIDE) sample *= 2
         val opts = BitmapFactory.Options().apply {
@@ -596,6 +635,7 @@ class VlmActivity : Activity() {
             inPreferredConfig = Bitmap.Config.ARGB_8888
         }
         var bmp = contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) } ?: return null
+        // EXIF の向きを回転・反転の行列にして当てる（写真を撮った向きのまま、PC と同じ見え方にする）
         val m = Matrix()
         when (orientation) {
             ExifInterface.ORIENTATION_ROTATE_90 -> m.postRotate(90f)
@@ -618,6 +658,7 @@ class VlmActivity : Activity() {
 
     // ================================================================= 質問する
 
+    /** テスト用の自動の質問。モデルと写真の両方が揃ったときに 1 回だけ送る。 */
     private fun maybeAutoAsk() {
         val q = autoQuestion ?: return
         if (handle == 0L || loading || reading || featuresRel == null) return
@@ -639,6 +680,10 @@ class VlmActivity : Activity() {
         return head + intArrayOf(BOI_TOKEN_ID) + img + intArrayOf(EOI_TOKEN_ID) + tail
     }
 
+    /**
+     * 質問を送る。① 受け付けられるか確かめる → ② プロンプトの ID（1 問目は画像トークン込み、2 問目からは差分）
+     * → ③ job（image_features で特徴のファイルを渡す・キャッシュの持ち回し）→ ④ 版を覚えて見張り → ⑤ 別のスレッドで生成。
+     */
     private fun ask(raw: String) {
         val q = raw.trim()
         // ★2026-09-30: 「押したのに何も起きない」を無くす。受け付けない理由を logcat に残し、入力が空なら画面にも出す
@@ -660,6 +705,7 @@ class VlmActivity : Activity() {
         val tok = tokenizer!!
         val feats = featuresRel!!
         val first = !chatStarted
+        // ②
         val ids = promptIds(tok, q, first)
         Log.i(TAG, "vlm prompt first=$first n=${ids.size} ids=${ids.joinToString(",")}")
         questionEdit.setText("")
@@ -669,6 +715,7 @@ class VlmActivity : Activity() {
             put("max_new", maxNew)
             put("prompt_ids", JSONArray().also { a -> ids.forEach { a.put(it) } })
             put("stop_ids", JSONArray().also { a -> stopIds.forEach { a.put(it) } })
+            // ③ image_features: 画像トークン（IMAGE_TOKEN_ID）の位置に、C++ が特徴を入れる（埋め込みの表を引く代わり）
             put("image_features", feats)
             put("reuse_cache", true)
             put("reset_cache", first)
@@ -678,10 +725,12 @@ class VlmActivity : Activity() {
         generating = true
         setBusy()
         lastRev = runCatching { JSONObject(NativeBridge.nativeProgress()).optLong("rev", -1L) }.getOrDefault(-1L)
+        // ④ 版は上の行で覚えた（変わるまで読まない。ChatActivity と同じ直し）。送った時刻を記録して見張りを始める
         askAt = System.currentTimeMillis()
         firstTokenAt = 0L
         val qShown = q
         ui.post(poll(qShown))
+        // ⑤
         val jobJson = withPaths(job)
         val h = handle
         genThread = thread(name = "edgeslm-vlm-generate") {
@@ -714,12 +763,17 @@ class VlmActivity : Activity() {
         }
     }
 
+    /** 表示用: 区切りの印（<turn|>・<|turn>・<eos>）を消して前後の空白を落とす。 */
     private fun clean(s: String): String {
         var t = s
         for (x in STRIP) t = t.replace(x, "")
         return t.trim()
     }
 
+    /**
+     * 答えが終わったとき（画面のスレッド）。① 答えを確定（上限で切れたら印を付ける）→ ② 統計の 1 行 → ③ PC 用のログ
+     * → ④ 窓からあふれた・止めた・失敗したときは、次の質問を写真から作り直す（chatStarted を下ろす）。
+     */
     private fun finish(q: String, first: Boolean, result: String) {
         generating = false
         val endAt = System.currentTimeMillis()
@@ -775,6 +829,7 @@ class VlmActivity : Activity() {
         private const val KEY_HAS_PHOTO = "has_photo"
         private const val REQ_CAMERA = 41
         private const val POLL_MS = 50L
+        // VIT_TIMEOUT_MS: 画像エンコーダの結果を待つ上限
         private const val VIT_TIMEOUT_MS = 30_000L
         private const val OPEN_WAIT_MS = 60_000L          // 文章側のモデルが開き終わるのを待つ上限（普段は 2.7 秒前後）
         private const val TRUNC_MARK = " …（長いので途中まで）"       // Phase 5: 上限で切れた答えの印
@@ -783,6 +838,7 @@ class VlmActivity : Activity() {
         private const val BOI_TOKEN_ID = 255999          // <|image>（画像の始まり）
         private const val EOI_TOKEN_ID = 258882          // <image|>（画像の終わり）
         private const val DEFAULT_SYSTEM = "画像についての質問に、日本語で簡潔に答えてください。"
+        // 書式は String.format の形（%1$s に system 文・質問が入る）。PC の hf_vlm.build_inputs と同じ並び（promptIds の注記）
         private const val GEMMA_HEAD = "<bos><|turn>system\n%1\$s<turn|>\n<|turn>user\n"
         private const val GEMMA_TAIL = "%1\$s<turn|>\n<|turn>model\n"
         private const val GEMMA_NEXT = "<turn|>\n<|turn>user\n%1\$s<turn|>\n<|turn>model\n"

@@ -25,6 +25,9 @@ EdgeSLM_AndroidGemma4 の `bench_prefill.build` / `build_full` と同じ呼び�
   変換でつまずくならこちらで先に分かる
 - 結果は `results/P2_vit_ctx/{tag}_build.json`。変換のログは `build_{版}/` の `*_convert.log`・`*_gen.log`（build_context.sh が書く）と
   `work/logs/vit_{tag}_{版}_build.log`（このスクリプトが画面に出したものの写し）
+- 2026-09-29 の実行の記録: `results/P2_20260929_vit_ctx.md`（SRQ なし 56 分・SRQ あり 46 分。2 版とも C-1〜C-5 合格、
+  context binary は SRQ なし 165.4MiB・SRQ あり 177.5MiB、入出力 pixel_values [1,630,768] → image_embeds [1,70,1536]）
+- StudyMemo 7.10 節（変換）。入力は quantize_vit の `*_final_qdq.onnx`、出力の `*_epctx.onnx` ＋ `.bin` を device_vit が端末へ送る
 """
 from __future__ import annotations
 
@@ -40,11 +43,14 @@ RES = C.RESULTS / "P2_vit_ctx"
 GIT_BASH = os.environ.get("GIT_BASH", r"C:\Program Files\Git\bin\bash.exe")   # Gemma4 と同じ場所
 
 
+# 予算と向きから、ファイル名の札（例: "b70_21x30"）と格子（パッチの縦, 横）を返す。quantize_vit.tag_for と同じ札。
 def tag_for(budget: int, portrait: bool) -> tuple[str, tuple[int, int]]:
     grid = (C.PORTRAIT_GRIDS if portrait else C.FIXED_GRIDS)[budget]
     return f"b{budget}_{grid[0]}x{grid[1]}", grid
 
 
+# 1 つの札・版（"srq" / "nosrq"）について、変換の各段の入出力のパスをまとめて返す。
+# 中間の生成物は build_{版}/ の下、包んだ ONNX は vit_{tag}/ の直下（端末へ送るのはこちらと ctx_…/ の .bin）。
 def paths(tag: str, variant: str) -> dict:
     d = C.OPS / f"vit_{tag}"
     name = f"vit_{tag}_{variant}"                     # build_context.sh の <tag>（ファイル名の頭）
@@ -70,6 +76,12 @@ def run_streaming(cmd: list[str], log: Path, env: dict) -> int:
 
 
 def build_one(tag: str, grid: tuple[int, int], variant: str, a) -> dict:
+    """1 つの版を変換（S5〜S7）→ 検査 → 包む（S8）→ 入出力の形の確かめ、の順に流し、結果の辞書を返す。
+
+    引数: tag・grid = tag_for の戻り値、variant = "srq" / "nosrq"、a = コマンドの引数（redo・int4_patch を見る）。
+    戻り値: {"final_qdq", "ctx_bin", "ctx_mib", "verify", "epctx", …}。失敗したときは "error" に理由を入れて返す
+    （例外で止めないのは、もう片方の版を続けて試し、記録も残すため）。
+    """
     from app.pipeline import verify_artifacts, wrap_epctx
     P = paths(tag, variant)
     if not P["final"].exists():
@@ -90,6 +102,7 @@ def build_one(tag: str, grid: tuple[int, int], variant: str, a) -> dict:
             old.unlink(missing_ok=True)
         if not Path(GIT_BASH).exists():
             raise SystemExit(f"Git Bash が無い: {GIT_BASH}（環境変数 GIT_BASH で場所を指定できる）")
+        # INT4 用の回避策の環境変数は、指定したときだけ付ける（親の環境に残っていても外す）
         env = dict(os.environ)
         if a.int4_patch:
             env["QAIRT_INT4_PATCH"] = "1"
@@ -104,6 +117,7 @@ def build_one(tag: str, grid: tuple[int, int], variant: str, a) -> dict:
             out["error"] = f"build_context.sh が失敗した（終了コード {rc}）。{P['build']} の *_convert.log / *_gen.log を見ること"
             print("  ★" + out["error"], flush=True)
             return out
+    # 大きさの記録（2026-09-29 は DLC 約 152MiB、context binary 165〜178MiB。results/P2_20260929_vit_ctx.md）
     out["dlc_mib"] = round(P["dlc"].stat().st_size / 2**20, 1) if P["dlc"].exists() else None
     out["ctx_bin"] = str(bins[0])
     out["ctx_mib"] = round(bins[0].stat().st_size / 2**20, 1)
@@ -123,6 +137,7 @@ def build_one(tag: str, grid: tuple[int, int], variant: str, a) -> dict:
     # ---- S8: EPContext の ONNX で包む（binary は別ファイル。embed=False） ----
     if not out.get("skipped"):
         info = wrap_epctx.run(bins[0], P["final"], P["epctx"], P["name"], embed=False)
+    # 変換を飛ばしたときは包み直さず、前に包んだ ONNX の入出力の形だけを読む（重みの外部データは読まない）
     else:
         import onnx
         m = onnx.load(str(P["epctx"]), load_external_data=False)
@@ -144,6 +159,7 @@ def build_one(tag: str, grid: tuple[int, int], variant: str, a) -> dict:
     return out
 
 
+# 版ごとに build_one を流し、results/P2_vit_ctx/{tag}_build.json に版ごとの結果を書く。失敗した版があれば最後に止める。
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--budget", type=int, default=70, choices=sorted(C.FIXED_GRIDS))

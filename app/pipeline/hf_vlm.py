@@ -22,6 +22,20 @@ ref_vlm.py（品質の評価）と check_wiring.py（配線の検算）の両方
 `quant_method: gemma` の重みは 2/4/8bit の整数＋スケールで入っていて、transformers が層ごとにその場で浮動小数へ戻して計算する。
 各 Linear の入力と出力は、QAT で学習した目盛りで 8bit に丸める（SRQ）。端末も同じ目盛りを使うので、
 **SRQ ありの PC の結果が「端末で目指す答え」**になる（EdgeSLM_AndroidGemma4 P0B と同じ考え方）。
+
+## 表に無いもの・使い方（2026-10-18 追記）
+
+| 関数 | 役割 |
+|---|---|
+| `disable_srq()` | SRQ を外す（活性のスケールを 0 に） |
+| `pixels_fixed_np()` | fixed の画像 → pixel_values を numpy だけで作る（torchvision の無い venv・端末の手本） |
+| `n_valid_patches()` | パディングを除いたパッチの数 |
+| `decode()` | 生成した ID を文字列に（止めるトークンは除く） |
+| `generate_with_features()` | 画像の特徴を外から与えて生成する（自前の画像エンコーダ・端末の特徴の品質を見る） |
+| `tensor_stats()` | 値域の要約（量子化の範囲を決める材料） |
+
+直接は動かさない（ref_vlm・check_wiring・device_vit・eval_qdq_vit などが import する）。解説は StudyMemo（EdgeSLM_AndroidVLM）
+01「VLM の構造」・02「Gemma4 の画像の通り道」・06「検算の考え方」。EdgeSLM_AndroidVLMSpec でも同じものを使う。
 """
 from __future__ import annotations
 
@@ -56,6 +70,7 @@ def load(device: str = "cuda", srq: bool = True):
     torch.backends.cudnn.allow_tf32 = False
     torch.set_float32_matmul_precision("highest")
 
+    # モデル（画像・文章の両方を持つ）とプロセッサ（chat template・画像の前処理）を手元のファイルから読む（ネットには出ない）
     t0 = time.time()
     proc = AutoProcessor.from_pretrained(str(C.HF_DIR), local_files_only=True)
     model = AutoModelForMultimodalLM.from_pretrained(str(C.HF_DIR), dtype=torch.float32, local_files_only=True)
@@ -66,7 +81,9 @@ def load(device: str = "cuda", srq: bool = True):
     head = model.lm_head
     bits = getattr(head, "num_bits", None)
 
+    # 出力層（262144 行）を 32768 行ずつ戻して掛ける forward に差し替える（全部を一度に float に戻すと 1.6GB 要るため）
     def head_forward(x):
+        """x [.., 1536] → logits [.., 262144]。入力の丸め → 行のかたまりごとに整数×スケールへ戻して掛ける → 出力の丸め。"""
         x = apply_srq(x, head.input_activation_scale)
         outs = []
         for s in range(0, head.out_features, LM_HEAD_CHUNK):
@@ -78,6 +95,7 @@ def load(device: str = "cuda", srq: bool = True):
             outs.append(torch.nn.functional.linear(x, w))
         return apply_srq(torch.cat(outs, dim=-1), head.output_activation_scale)
 
+    # 量子化された出力層のときだけ差し替える（bits が無い＝浮動小数のままなら元の forward を使う）
     if bits in (2, 4, 8):
         head.forward = head_forward
 
@@ -123,6 +141,7 @@ def prepare_image(img: Image.Image, prep: str, budget: int, grid: tuple[int, int
     どちらも、先に EXIF の向きを反映する（スマホの縦写真は、画素は横のまま「回転して表示せよ」という印だけ付いていることがある。
     HF はファイルから読むときだけこれを反映し、PIL の画像を渡したときは反映しない）。透明部分は白で埋める。
     """
+    # ① EXIF の向きを反映し、透明部分を白で塗ってから RGB にする
     from PIL import ImageOps
     img = ImageOps.exif_transpose(img)
     if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
@@ -135,6 +154,7 @@ def prepare_image(img: Image.Image, prep: str, budget: int, grid: tuple[int, int
         return img
     if prep != "fixed":
         raise ValueError(prep)
+    # ② fixed: 格子の大きさ（パッチ 16px × 縦横の数）の黒い画面に、縦横比を保って縮小・拡大した画像を真ん中に貼る
     gh, gw = grid or C.FIXED_GRIDS[budget]
     H, W = gh * C.PATCH, gw * C.PATCH
     s = min(W / img.width, H / img.height)
@@ -173,6 +193,7 @@ def pixels_fixed_np(img_fixed: Image.Image, grid: tuple[int, int]):
     return np.ascontiguousarray(x.reshape(gh * gw, C.PATCH * C.PATCH * 3))
 
 
+# プロセッサの出力のうち、モデルに渡すもの（それ以外は捨てる。初回だけ何を捨てたかを表示）
 _KEEP = ("input_ids", "attention_mask", "pixel_values", "image_position_ids", "mm_token_type_ids")
 _dropped_shown = False
 
@@ -190,13 +211,16 @@ def build_inputs(proc, img: Image.Image, question: str, budget: int, system: str
     expect_exact=True（fixed の前処理）のときは、画像トークン数がちょうど budget であることも確かめる。
     """
     global _dropped_shown
+    # ① 会話の形を作り、chat template で文字列にする（画像は {"type": "image"} の印だけ。中身は images で渡す）
     msgs = []
     if system:
         msgs.append({"role": "system", "content": system})        # 文字列で渡す（リストだと末尾に空白が付く）
     msgs.append({"role": "user", "content": [{"type": "image"}, {"type": "text", "text": question}]})
     text = proc.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
+    # ② プロセッサに文と画像を通す。max_soft_tokens＝画像トークン数の上限（70/140/280）
     inputs = proc(text=[text], images=[[img]], return_tensors="pt", add_special_tokens=False,
                   images_kwargs={"max_soft_tokens": budget})
+    # ③ 先頭の <bos> が 1 つか・画像トークン数が上限以内か（fixed ならちょうどか）を確かめる
     ids = inputs["input_ids"][0]
     bos = proc.tokenizer.bos_token_id
     assert int(ids[0]) == bos and int(ids[1]) != bos, f"先頭の <bos> が 1 つではない: {ids[:3].tolist()}"
@@ -227,6 +251,7 @@ def generate_hf(model, inputs: dict, max_new: int) -> dict:
     止めるトークン（<turn|> など）が出たら止める。最後に選んだ 1 つは食わせない（端末の手順と同じ）。
     """
     import torch
+    # GPU は計算を後回しにするので、時間を測る前に終わるのを待つ（CPU なら何もしない）
     sync = (lambda: torch.cuda.synchronize()) if inputs["input_ids"].is_cuda else (lambda: None)
     gen, pkv = [], None
     t0 = time.time()
@@ -236,6 +261,7 @@ def generate_hf(model, inputs: dict, max_new: int) -> dict:
         with torch.no_grad():
             o = model(**feed, past_key_values=pkv, use_cache=True)
         pkv = o.past_key_values
+        # 最後の位置の logits の 1 位を採る。t_first＝最初の 1 語が出るまでの時間（画像エンコーダとプロンプトの処理を含む）
         nid = int(o.logits[0, -1].float().argmax())
         if t_first is None:
             sync()
@@ -249,6 +275,7 @@ def generate_hf(model, inputs: dict, max_new: int) -> dict:
 
 
 def decode(proc, ids: list[int]) -> str:
+    """生成した ID の列を文字列にする（止めるトークンを除き、前後の空白を取る。特別なトークンは残す）。"""
     return proc.tokenizer.decode([i for i in ids if i not in C.STOP_IDS], skip_special_tokens=False).strip()
 
 
@@ -280,6 +307,7 @@ def device_style_embeds(model, input_ids, feats):
     端末の入口の量子化の範囲で切り詰める実験は check_wiring.py の clip_inputs / entry_clip で行う（全位置に掛ける）。
     """
     import torch
+    # img_mask: 画像トークンの位置。ids_pad: 画像の位置を pad（0）に替えた ID（埋め込みと PLE はこれで引く）
     lm = model.model.language_model
     ids = input_ids[0]
     img_mask = ids == C.IMAGE_TOKEN_ID
@@ -339,6 +367,7 @@ def generate_device_style(model, emb, ple, max_new: int, prefill: str = "step", 
     t0 = time.time()
     e, p = tf(emb, ple)
     if prefill == "step":
+        # ① プロンプト: step なら 1 トークンずつ（最後の位置だけ logits を出す）、batch なら一度に
         pkv, T = None, e.shape[1]
         assert T > 0, "プロンプトが空"
         for t in range(T):
@@ -347,9 +376,11 @@ def generate_device_style(model, emb, ple, max_new: int, prefill: str = "step", 
         logits, pkv = device_style_step(model, e, p, None)
     else:
         raise ValueError(prefill)
+    # ② プロンプトの最後の位置の 1 位が最初の語。ここまでの時間を t_first にする
     nid = int(logits[-1].float().argmax())
     sync()
     t_first = time.time() - t0
+    # ③ 生成: 選んだ語の埋め込みと PLE を表から引いて 1 つずつ食わせる。止めるトークンか max_new で終わる
     gen = []
     while True:
         gen.append(nid)

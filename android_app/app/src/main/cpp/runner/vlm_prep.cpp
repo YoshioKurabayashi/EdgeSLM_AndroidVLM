@@ -1,4 +1,8 @@
 // EdgeSLM Runner - VLM の画像の前処理（説明は vlm_prep.h）
+//
+// （2026-10-18 追記）中身の 3 段: pil_bicubic_resize_rgb（Pillow と同じ縮め方）→ vlm_pixels（黒に貼ってパッチに並べる）
+// → run_vlm_prep（job の JSON で呼ぶ入口。ファイルを読み、作った pixel_values をファイルに書く）。
+// Pillow の手順を写したのは、PC の評価と同じ値（ビット単位で一致）にするため（EdgeSLM_AndroidVLM/results/P3_20260929_device_vlm.md 2 節）
 #include "runner/vlm_prep.h"
 
 #include <android/log.h>
@@ -16,6 +20,7 @@ using nlohmann::json;
 
 namespace {
 
+// 今の時刻（ms）。時間を測る用途だけに使う（steady_clock）
 double now_ms() {
     return std::chrono::duration<double, std::milli>(
         std::chrono::steady_clock::now().time_since_epoch()).count();
@@ -77,6 +82,7 @@ inline uint8_t clip8(int32_t v) {                      // Pillow の clip8: 22bi
     return static_cast<uint8_t>(s < 0 ? 0 : (s > 255 ? 255 : s));
 }
 
+// ファイルを丸ごとバイト列で読む（ate で開いて末尾の位置＝大きさを先に知る）。開けなければ false と理由
 bool read_file(const std::string& path, std::vector<uint8_t>* out, std::string* err) {
     std::ifstream f(path, std::ios::binary | std::ios::ate);
     if (!f) { *err = "cannot open: " + path; return false; }
@@ -87,6 +93,7 @@ bool read_file(const std::string& path, std::vector<uint8_t>* out, std::string* 
     return true;
 }
 
+// n バイトをファイルに書く（上書き）。書けなければ false と理由
 bool write_file(const std::string& path, const void* p, size_t n, std::string* err) {
     std::ofstream f(path, std::ios::binary | std::ios::trunc);
     if (!f) { *err = "cannot write: " + path; return false; }
@@ -95,6 +102,7 @@ bool write_file(const std::string& path, const void* p, size_t n, std::string* e
     return true;
 }
 
+// job の相対パスを runtime.base_dir から解決する（絶対パス・空・base が空ならそのまま）
 std::string resolve_path(const std::string& base, const std::string& p) {
     if (p.empty() || p[0] == '/' || base.empty()) return p;
     return base + "/" + p;
@@ -102,8 +110,12 @@ std::string resolve_path(const std::string& base, const std::string& p) {
 
 }  // namespace
 
+// (sw, sh) → (dw, dh) に縮める（宣言の説明は vlm_prep.h）。
+// ① 横・縦それぞれの「どの画素を、どの重みで足すか」を作る → ② 横の計算（使う行だけ）→ ③ 縦の計算。
+// 足し算は 22bit の固定小数点の整数で行い、各段の終わりで 8bit に丸める（Pillow と同じ。途中を float にすると丸めが変わり、ビット単位では一致しなくなると推定）
 void pil_bicubic_resize_rgb(const uint8_t* src, int sw, int sh, uint8_t* dst, int dw, int dh) {
     // Pillow の ImagingResampleInner と同じ: 横 → 縦の 2 回。大きさが変わらない向きは飛ばす
+    // ① 係数の表（bh・kh は横、bv・kv は縦）
     std::vector<int> bh, bv;
     std::vector<int32_t> kh, kv;
     const int ksh = precompute_coeffs(sw, 0.0, sw, dw, &bh, &kh);
@@ -117,6 +129,7 @@ void pil_bicubic_resize_rgb(const uint8_t* src, int sw, int sh, uint8_t* dst, in
     const uint8_t* vin = src;
     int vin_w = sw;
     int y_off = 0;                                      // 縦の計算で、入力の行番号から引く量
+    // ② 横の計算。結果は tmp（dw × rows の画像）に置く。s0〜s2 の初期値 1 << 21 は四捨五入のための 0.5
     if (need_h) {
         const int rows = y_last - y_first;
         tmp.resize(static_cast<size_t>(dw) * rows * 3);
@@ -142,6 +155,7 @@ void pil_bicubic_resize_rgb(const uint8_t* src, int sw, int sh, uint8_t* dst, in
         vin_w = dw;
         y_off = y_first;
     }
+    // ③ 縦の計算。入力は横の結果（tmp）か元の画像。ymin は tmp の中の行番号に直してから使う
     if (need_v) {
         for (int yy = 0; yy < dh; ++yy) {
             const int ymin = bv[static_cast<size_t>(yy) * 2] - y_off, ymax = bv[static_cast<size_t>(yy) * 2 + 1];
@@ -169,10 +183,14 @@ void pil_bicubic_resize_rgb(const uint8_t* src, int sw, int sh, uint8_t* dst, in
     }
 }
 
+// 写真 → pixel_values（宣言の説明は vlm_prep.h）。
+// ① 縦横比を保って格子（W × H ピクセル）に収まる大きさを決めて縮める → ② 黒い画像の真ん中に貼る
+// → ③ 16×16 のパッチに分けて ×1/255。info に大きさ・貼った位置・時間を入れる
 bool vlm_pixels(const uint8_t* rgb, int w, int h, int gh, int gw, int patch, std::vector<float>* out,
                 json* info, std::string* err) {
     if (w <= 0 || h <= 0 || gh <= 0 || gw <= 0 || patch <= 0) { *err = "bad size"; return false; }
     const double t0 = now_ms();
+    // ① 格子の大きさ（例: 21×30 パッチ × 16 ＝ 336×480 ピクセル）と倍率 s（はみ出さない方に合わせる）
     const int H = gh * patch, W = gw * patch;
     const double s = std::min(static_cast<double>(W) / w, static_cast<double>(H) / h);
     // Python の round（偶数への丸め）。既定の丸めの向き（最も近い偶数）の nearbyint と同じ
@@ -216,6 +234,8 @@ bool vlm_pixels(const uint8_t* rgb, int w, int h, int gh, int gw, int patch, std
     return true;
 }
 
+// job の JSON で呼ぶ入口（宣言の説明は vlm_prep.h）。1 枚ごとに: RGB のファイルを読む → 大きさを確かめる
+// → vlm_pixels → pixel_values を float32 のままファイルに書く。1 枚が失敗しても次へ進み、records に理由を残す
 json run_vlm_prep(const json& job) {
     json out;
     out["task"] = "vlm_prep";
@@ -225,6 +245,7 @@ json run_vlm_prep(const json& job) {
     const int gh = grid.at(0).get<int>(), gw = grid.at(1).get<int>();
     const int patch = job.value("patch", 16);
     json items = job.value("items", json::array());
+    // items が無く rgb などが直接書いてあれば、1 枚の items として扱う
     if (items.empty() && job.contains("rgb")) {
         items.push_back({{"rgb", job["rgb"]}, {"width", job["width"]}, {"height", job["height"]}, {"out", job["out"]}});
     }
@@ -239,6 +260,7 @@ json run_vlm_prep(const json& job) {
         const std::string out_path = resolve_path(base, it.value("out", std::string()));
         rec["out"] = it.value("out", std::string());
         if (!read_file(in_path, &rgb, &err)) { rec["error"] = err; recs.push_back(rec); continue; }
+        // ファイルの大きさが 幅 × 高さ × 3 と合わなければ、幅・高さの書き違いなので止める（読み違えた画像を作らない）
         if (rgb.size() != static_cast<size_t>(w) * h * 3) {
             rec["error"] = "rgb size mismatch: " + std::to_string(rgb.size()) + " != " + std::to_string(w * h * 3);
             recs.push_back(rec);

@@ -23,6 +23,9 @@ Gemma4Processor が import できないため（2026-09-28 に踏んだ。venv �
 | 答えの品質（feats → ref_vlm） | SRQ ありの版・なしの版の特徴で 126 問 | 基準（42/123）と同等、入れ替わりに偏りなし |
 
 結果は `results/P2_vit_quant/{tag}_acc.json`、特徴は `work/feats/vit_{tag}_{variant}.npz`（images: 画像の相対パス、feats: [K,M,1536]）。
+2026-09-28 の実行の記録: `results/P2_20260928_vit_quant.md` の 3 節（SRQ なしの版 ↔ HF（SRQ なし）は cos 最小 0.9972・中央値 0.9993 で合格）
+と 6 節（SRQ ありの版の特徴で 44/123）。StudyMemo 7.9 節。
+入力: quantize_vit の `*_final_qdq.onnx`（と export_vit の float の ONNX）、capture_vit が保存した評価用 16 枚の HF の値。
 """
 from __future__ import annotations
 
@@ -40,12 +43,18 @@ FEATS = C.WORK / "feats"
 PIX_TOL = 1.2e-7                                  # 前処理の照合の許容（float32 の 1 目盛り＝1.0 付近の丸めの差まで）
 
 
+# 版の名前（"float" / "nosrq" / "srq"）から ONNX のパスを返す。float は export_vit が書いた量子化前のもの。
 def model_path(tag: str, variant: str) -> Path:
     d = C.OPS / f"vit_{tag}"
     return d / (f"vit_{tag}.onnx" if variant == "float" else f"vit_{tag}_{variant}_final_qdq.onnx")
 
 
 def session(path: Path):
+    """ORT の CPU のセッションを、グラフの最適化を全部切って開く。
+
+    最適化を切るのは、Q/DQ の組を ORT が畳んで整数の演算に置き換えないようにし、
+    「float の計算の途中で整数に丸めて戻す」量子化の真似をそのまま流すため（モジュールの説明のとおり）。
+    """
     import onnxruntime as ort
     if not path.exists():
         raise SystemExit(f"{path} が無い（float は export_vit export、srq/nosrq は quantize_vit で作る）")
@@ -56,6 +65,7 @@ def session(path: Path):
 
 def rel(a, b) -> dict:
     """トークンごとの相対 L2（b が正解）と cos（画像全体）。"""
+    # a・b は [M,1536]（または [1,M,1536]）。最後の軸を残して 2 次元に並べ直し、float64 で計算する（丸めの差を混ぜないため）
     a = np.asarray(a, np.float64).reshape(-1, a.shape[-1])
     b = np.asarray(b, np.float64).reshape(-1, b.shape[-1])
     r = np.linalg.norm(a - b, axis=-1) / np.maximum(np.linalg.norm(b, axis=-1), 1e-12)
@@ -63,18 +73,25 @@ def rel(a, b) -> dict:
     return {"rel_mean": float(r.mean()), "rel_max": float(r.max()), "cos": cos}
 
 
+# 画像ごとの比べの結果（rel の戻り値の並び）を、相対 L2 の平均・cos の最小・cos の中央値にまとめる。
 def summarize(rows: list[dict]) -> dict:
     cs = sorted(r["cos"] for r in rows)
     return {"rel_mean": float(np.mean([r["rel_mean"] for r in rows])), "cos_min": cs[0], "cos_median": cs[len(cs) // 2]}
 
 
 def acc(a) -> dict:
+    """評価用 16 枚で、float・SRQ なし・SRQ ありの 3 つの ONNX の出力を HF の値と比べる（基本設計 Phase 2 の Q8）。
+
+    引数: a = コマンドの引数（budget・portrait）。戻り値: 版ごとの時間と比べの結果の辞書（main が JSON に書く）。
+    HF の値（feat_nosrq・feat_srq）と入力（pixel_values）は capture_vit が保存したもの（export_vit.load_capture で読む）。
+    """
     from app.pipeline.export_vit import load_capture, tag_for
     tag, grid = tag_for(a.budget, a.portrait)
     cap = load_capture(tag)
     E = len(cap["ids"])
     out = {"tag": tag, "n_eval": E, "variants": {}}
     feats = {}
+    # ① 3 つの版を順に開き、16 枚を 1 枚ずつ流す（ORT の CPU で 1 枚の時間の中央値も残す）
     for v in ("float", "nosrq", "srq"):
         p = model_path(tag, v)
         if not p.exists():
@@ -90,6 +107,7 @@ def acc(a) -> dict:
         out["variants"][v] = {"ort_cpu_sec_median": round(float(np.median(ts)), 2)}
         print(f"  {v}: {E} 枚（1 枚 {np.median(ts):.1f}s）", flush=True)
 
+    # ② 版 v の出力を基準 ref と 1 枚ずつ比べ、まとめを out に入れて表示する
     def cmp(v, ref_name, ref):
         rows = [rel(feats[v][j], ref[j]) for j in range(E)]
         out["variants"][v][f"vs_{ref_name}"] = summarize(rows) | {"per_image": rows}
@@ -106,6 +124,7 @@ def acc(a) -> dict:
     if "srq" in feats:
         cmp("srq", "hf_srq", cap["feat_srq"])
         cmp("srq", "hf_nosrq", cap["feat_nosrq"])
+    # ③ 合否は「SRQ なしの版 ↔ HF（SRQ なし）」の cos 最小が 0.99 以上か（揺れの無い比べで算術の誤差だけを見る）
     if "nosrq" in feats:
         c = out["variants"]["nosrq"]["vs_hf_nosrq"]["cos_min"]
         out["pass_nosrq"] = bool(c >= 0.99)
@@ -122,6 +141,7 @@ def check_pixels(tag: str, budget: int, grid: tuple[int, int], man: dict) -> dic
     from app.pipeline.export_vit import load_capture
     cap = load_capture(tag)
     by_id = {it["id"]: it["image"] for it in man["items"]}
+    # 同じ画像を PIL でレターボックスにし、numpy でパッチに並べた値と、HF のプロセッサの値の差の最大を取る
     worst, n_diff = 0.0, 0
     for j, iid in enumerate(cap["ids"]):
         img_in = H.prepare_image(Image.open(C.EVAL_DIR / by_id[str(iid)]), "fixed", budget, grid=grid)
@@ -136,7 +156,11 @@ def check_pixels(tag: str, budget: int, grid: tuple[int, int], man: dict) -> dic
 
 
 def feats(a) -> dict:
-    """manifest の全画像（重複を除く）について、固定の格子の前処理 → ONNX → 特徴 [M,1536] を保存する。"""
+    """manifest の全画像（重複を除く）について、固定の格子の前処理 → ONNX → 特徴 [M,1536] を保存する。
+
+    引数: a = コマンドの引数（budget・portrait・variant）。戻り値: 保存先・枚数・時間・前処理の照合の結果。
+    保存した npz は Phase 1 の venv の ref_vlm に `--vision npz:…` で渡し、文章側は HF のまま答えの品質を測る。
+    """
     from PIL import Image
     from app.pipeline import hf_vlm as H
     from app.pipeline.export_vit import tag_for
@@ -144,6 +168,7 @@ def feats(a) -> dict:
     man = json.loads((C.EVAL_DIR / "manifest.json").read_text(encoding="utf-8"))
     pix_check = check_pixels(tag, a.budget, grid, man)            # ★先に前処理を確かめる（違えば止まる）
     sess = session(model_path(tag, a.variant))
+    # 同じ画像に複数の問いがあるので、画像の並びは重複を除く（順番は manifest の初出の順のまま）。M は特徴の数（70）
     images = list(dict.fromkeys(it["image"] for it in man["items"]))
     M = (grid[0] // C.POOL) * (grid[1] // C.POOL)
     out = np.zeros((len(images), M, C.TEXT_HIDDEN), np.float32)
@@ -161,6 +186,7 @@ def feats(a) -> dict:
             "sec": round(time.time() - t0, 1), "pixel_check": pix_check}
 
 
+# acc か feats を動かし、結果を results/P2_vit_quant/{tag}_acc.json（feats は {tag}_feats_{版}.json）に書く。
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["acc", "feats"])

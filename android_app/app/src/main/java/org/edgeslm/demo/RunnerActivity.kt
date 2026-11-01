@@ -13,17 +13,28 @@ import android.util.Log
  *  ② **Android 12+ はバックグラウンドからの Foreground Service 起動を制限する**ため、
  *     フォアグラウンド文脈（＝アクティビティ）から Service を起動する
  *
+ * ★2026-10-18 補足: 下の使い方の `org.edgeslm.demo/.RunnerActivity` は同僚向けのデモアプリ（org.edgeslm.demo）の書き方。
+ *   複製したアプリ（org.edgeslm.gemma4・org.edgeslm.vlm など）では `-n <アプリの ID>/org.edgeslm.demo.RunnerActivity` と
+ *   クラスを完全な名前で書く（短い `.RunnerActivity` は <アプリの ID>.RunnerActivity と読まれ、見つからない。namespace は
+ *   org.edgeslm.demo のまま。EdgeSLM_AndroidVLM の app/pipeline/device_vit.py の注記）。アクション名 org.edgeslm.demo.RUN は変わらない。
  * 起動されたらすぐ Service を開始して finish する。画面は出ない。
  *
  * 使い方:
  *   adb shell am start -n org.edgeslm.demo/.RunnerActivity \
  *       -a org.edgeslm.demo.RUN --es job jobs/job.json
+ *
+ * 使う段: PC から job を投げる検証のすべて（PC の道具は adb で am start を打つ）。この画面は RunnerService を起こすだけ。
+ * 入力: `--es job`（files/ からの相対パス。例 jobs/job.json）・`--es overrides`（job を部分的に上書きする JSON。省略可）。
+ * 出力: なし（結果は RunnerService が files/out/ に書く）。ログのタグは EdgeSLMRunner。
+ * （2026-10-18 学習用に追記）
  */
 open class RunnerActivity : Activity() {
 
+    /** ① 置き場のフォルダを作る → ② job の指定が無ければ版だけログに出して閉じる → ③ RunnerService を起こして閉じる。 */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // ① 置き場の準備（実パスをログへ出し、サブフォルダを作る）
         // 外部ファイルディレクトリの実パスを必ずログに出す。
         // ホスト側のハーネスはこのパスに push する（基本設計③ リスク#5）。
         val base = getExternalFilesDir(null)
@@ -42,6 +53,7 @@ open class RunnerActivity : Activity() {
             Log.i(TAG, "subdirs ready: ${b.list()?.joinToString(",")}")
         }
 
+        // ② job の指定（files/ からの相対パス）を受け取る
         val job = intent?.getStringExtra(EXTRA_JOB)
         if (job.isNullOrBlank()) {
             // ジョブ指定なしで起動された場合（ランチャーからのタップ等）は
@@ -51,6 +63,8 @@ open class RunnerActivity : Activity() {
             return
         }
 
+        // ③ Service へ job と overrides を引き継いで起こす。startForegroundService で起こした Service は、
+        //   決められた短い時間のうちに startForeground を呼ぶ決まり（RunnerService.onStartCommand の最初の行がそれ）
         val svc = serviceIntent().apply {
             action = ACTION_RUN
             putExtra(EXTRA_JOB, job)
@@ -66,6 +80,7 @@ open class RunnerActivity : Activity() {
     protected open fun serviceIntent(): Intent = Intent(this, RunnerService::class.java)
 
     companion object {
+        // TAG は logcat の絞り込み用（RunnerService と同じ名前）。ACTION_RUN・EXTRA_JOB・EXTRA_OVERRIDES は am start の -a・--es に書く名前
         const val TAG = "EdgeSLMRunner"
         const val ACTION_RUN = "org.edgeslm.demo.RUN"
         const val EXTRA_JOB = "job"

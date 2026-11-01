@@ -42,6 +42,13 @@ HF の `Gemma4VisionModel`（パッチの埋め込み → 16 層 → 3×3 プー
 
 `SRQ = True` にすると、各 Linear の入出力を QAT の目盛りで 8bit に丸める（HF の QuantizedLinear と同じ）。
 **ONNX に書き出すときは False のまま**（量子化の工程で u8 の Q/DQ として入れる）。確認用。
+
+## 使う段・入力と出力・動かし方
+
+- Phase 2-1（基本設計_Phase2.md、StudyMemo 7 章「画像エンコーダを書き直す」・13 章）。このファイル単体では動かさない
+- export_vit.py が VitGraph を作って ONNX に書き出し（export）、HF と突き合わせる（check）。capture_vit・probe_vit・ref_vlm（--vision own）も使う
+- 入力 pixel_values [1,N,768]（N = 630、70 トークンの格子 21×30）→ 出力 image_embeds [1,M,1536]（M = 70）
+- 自前の配線 ↔ HF（SRQ なし）は出力の相対 L2 最大 1.1e-5・平均 1.2e-6（足し算の順序の差だけ。results/P2_20260928_vit_export.md）
 """
 from __future__ import annotations
 
@@ -53,11 +60,13 @@ from safetensors import safe_open
 
 from app.pipeline import vlm_common as C
 
+# safetensors の中の画像エンコーダの重みの名前の頭。GELU_C は tanh 近似の GELU の係数 √(2/π)
 PFX = "model.vision_tower."
 GELU_C = 0.7978845608028654        # sqrt(2/pi)
 SRQ = False                        # ★確認用。ONNX に書き出すときは False
 
 
+# GELU の tanh 近似: 0.5·x·(1 + tanh(√(2/π)·(x + 0.044715·x³)))。HF の gelu_pytorch_tanh と同じ値。
 def gelu_tanh(x: torch.Tensor) -> torch.Tensor:
     # ★Pow を使わない（RMSNorm の見分けが「Pow(x,2) → ReduceMean」を探すため、紛れないように）
     return 0.5 * x * (1.0 + torch.tanh(GELU_C * (x + 0.044715 * x * x * x)))
@@ -65,6 +74,7 @@ def gelu_tanh(x: torch.Tensor) -> torch.Tensor:
 
 def apply_srq(x: torch.Tensor, scale: float) -> torch.Tensor:
     """QAT の活性の丸め（transformers の gemma_quant.apply_srq と同じ。scale 0 は何もしない）。"""
+    # x を scale で割って整数に丸め、int8 の範囲（−128〜127）に収めてから scale を掛けて戻す（8bit の量子化の真似）
     if not scale:
         return x
     return torch.clamp(torch.round(x / scale), -128.0, 127.0) * scale
@@ -74,6 +84,7 @@ class QatFile:
     """QAT モバイル版のファイルから、名前を指定して必要なテンソルだけを読む（画像エンコーダ用）。"""
 
     def __init__(self):
+        # safetensors を開き（中身は名前を指定したときに読む）、config.json の vision_config から eps を取る
         self.f = safe_open(str(C.HF_DIR / "model.safetensors"), framework="pt")
         self.cfg = json.loads((C.HF_DIR / "config.json").read_text(encoding="utf-8"))["vision_config"]
         self.eps = float(self.cfg["rms_norm_eps"])
@@ -86,6 +97,7 @@ class QatFile:
         assert self.cfg["hidden_activation"] == "gelu_pytorch_tanh"
         assert float(self.cfg["rope_parameters"]["rope_theta"]) == C.VIT_ROPE_THETA
 
+    # 名前を指定してテンソルを 1 本読む（t は元の型のまま、vec は float32 に）
     def t(self, name: str) -> torch.Tensor:
         return self.f.get_tensor(name)
 
@@ -106,22 +118,26 @@ class RMSNorm(torch.nn.Module):
     """x * rsqrt(mean(x²)+eps) * w（Gemma4 の gemma4_graph.RMSNorm と同じ形）。重みなしは w=1。"""
 
     def __init__(self, w: torch.Tensor, eps: float):
+        # w = 重み [D]（重みなしの正規化は全部 1）、eps = 0 で割らないための小さな値
         super().__init__()
         self.weight = torch.nn.Parameter(w.clone(), requires_grad=False)
         self.eps = eps
 
     def forward(self, x):
+        # 最後の軸の二乗平均で割って大きさをそろえ、重みを掛ける（書き出すと QAIRT が RmsNorm 1 つにまとめる並び）
         return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps) * self.weight
 
 
 class Lin(torch.nn.Module):
     """バイアスなしの Linear。書き出すと MatMul と [in,out] の初期化子になる。qat に QAT の情報を持つ（Phase 2-2 で使う）。"""
 
+    # d["w"] = float32 の重み [out, in]。QAT の Linear なら名前・ビット数・入出力の活性の目盛りも持つ（patch_proj・proj は持たない）
     def __init__(self, d: dict):
         super().__init__()
         self.weight = torch.nn.Parameter(d["w"].clone(), requires_grad=False)
         self.qat = {k: d[k] for k in ("name", "bits", "in_act", "out_act")} if "in_act" in d else None
 
+    # SRQ（確認用）が真で QAT の Linear なら、入力と出力を QAT の目盛りで 8bit に丸める
     def forward(self, x):
         if SRQ and self.qat:
             y = F.linear(apply_srq(x, self.qat["in_act"]), self.weight)
@@ -158,8 +174,11 @@ def rotate_half_2d(x: torch.Tensor) -> torch.Tensor:
     return torch.cat((-x[..., q:2 * q], x[..., :q], -x[..., 3 * q:], x[..., 2 * q:3 * q]), dim=-1)
 
 
+# 画像エンコーダの 1 層（HF の Gemma4VisionEncoderLayer と同じ部品の並び）。i = 層の番号（0〜15）。
+# 重みは safetensors から直接読む。注意のヘッドは 12 個 × 64 次元（K/V もヘッド 12 個。文章側と違って共有しない）。
 class VitLayer(torch.nn.Module):
     def __init__(self, qf: QatFile, i: int):
+        # 層 i の正規化 4 つ・q/k/v/o・q/k/v の正規化・MLP の 3 本を読む。QAT の 7 本は Lin（QAT の情報つき）
         super().__init__()
         p = f"{PFX}encoder.layers.{i}."
         eps = qf.eps
@@ -181,6 +200,8 @@ class VitLayer(torch.nn.Module):
         # cos/sin は全層で同じ表なので層には持たせず、VitGraph のバッファを forward の引数で受け取る（書き出しで重複させない）
 
     def forward(self, h: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+        # h = [1,N,768]、cos/sin = [1,N,1,64]（全層で同じ表）。戻り値は同じ形の h
+        # ① 注意: 正規化 → Q/K/V → Q・K だけ 2 次元 RoPE で位置を入れる
         N = h.shape[1]
         res = h
         a = self.input_layernorm(h)
@@ -189,11 +210,13 @@ class VitLayer(torch.nn.Module):
         v = self.v_norm(self.v_proj(a).view(1, N, self.nh, self.hd))
         q = q * cos + rotate_half_2d(q) * sin                               # cos/sin [1,N,1,64]
         k = k * cos + rotate_half_2d(k) * sin
+        # ② 全部のパッチどうしで注意を取る（画像の中は双方向。パディングが無いのでマスクも要らない）
         q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)   # [1,12,N,64]
         s = torch.matmul(q, k.transpose(2, 3))                              # [1,12,N,N]。スケール 1.0、マスクなし
         ctx = torch.matmul(torch.softmax(s, dim=-1), v)                      # [1,12,N,64]
         ctx = ctx.transpose(1, 2).reshape(1, N, self.nh * self.hd)
         h = res + self.post_attention_layernorm(self.o_proj(ctx))
+        # ③ MLP（gate と up の積を down で戻す）。前後に正規化、残差で足す
         res = h
         b = self.pre_feedforward_layernorm(h)
         h = res + self.post_feedforward_layernorm(self.down_proj(gelu_tanh(self.gate_proj(b)) * self.up_proj(b)))
@@ -207,11 +230,14 @@ class VitGraph(torch.nn.Module):
     fold_pool_scale=True: プーリングの後の ×√768 を掛けず、射影層の RMSNorm の eps を eps/768 にする（同じ計算）。
     """
 
+    # 書き出す ONNX の入出力の名前（端末の C++・device_vit はこの名前で渡す・受け取る）
     INPUT_NAMES = ["pixel_values"]
     OUTPUT_NAMES = ["image_embeds"]
 
     def __init__(self, qf: QatFile, grid: tuple[int, int], fold_pool_scale: bool = True):
+        # qf = QAT の重みの読み手、grid = (縦, 横) のパッチの数、fold_pool_scale = ×√768 を eps に吸収するか
         super().__init__()
+        # ① 格子の大きさ。パッチ数 N と、3×3 でまとめた後の画像トークン数 M を決める
         gh, gw = grid
         assert gh % C.POOL == 0 and gw % C.POOL == 0, grid
         self.gh, self.gw = gh, gw
@@ -222,11 +248,13 @@ class VitGraph(torch.nn.Module):
         self.patch_proj = Lin({"w": qf.vec(PFX + "patch_embedder.input_proj.weight")})
         table = qf.vec(PFX + "patch_embedder.position_embedding_table")          # [2, 10240, 768]
         self.register_buffer("pos_emb", (table[0][pos[:, 0]] + table[1][pos[:, 1]])[None])   # [1,N,768]
+        # ② 2 次元 RoPE の表も格子から先に作って定数にする（毎回計算しない。StudyMemo 7.2 節）
         cos, sin = rope2d_tables(pos)
         self.register_buffer("cos", cos[None, :, None, :])                     # [1,N,1,64]
         self.register_buffer("sin", sin[None, :, None, :])
         self.layers = torch.nn.ModuleList([VitLayer(qf, i) for i in range(C.VIT_LAYERS)])
         # 射影層（Gemma4MultimodalEmbedder）: RMSNorm（重みなし、eps は vision の rms_norm_eps）→ Linear（float）
+        # ③ ×√768 を省くときは eps を 1/768 にする（RMSNorm(c·x; ε) = RMSNorm(x; ε/c²)、c² = 768。StudyMemo 7.4 節）
         eps = qf.eps / C.VISION_HIDDEN if fold_pool_scale else qf.eps
         self.proj_norm = RMSNorm(torch.ones(C.VISION_HIDDEN), eps)
         self.proj = Lin({"w": qf.vec("model.embed_vision.embedding_projection.weight")})
@@ -240,19 +268,23 @@ class VitGraph(torch.nn.Module):
         return t.reshape(1, self.M, D)
 
     def forward(self, pixel_values: torch.Tensor) -> torch.Tensor:
+        # 書き出し（torch.onnx.export）で呼ばれる入口。出力の特徴だけを返す
         return self.run(pixel_values)["image_embeds"]
 
     def run(self, pixel_values: torch.Tensor, keep: bool = False) -> dict:
         """keep=True なら途中の値（パッチの埋め込み・各層の出力・プーリングの後）も返す（HF との突き合わせ用）。"""
+        # ① 入力の 0〜1 を −1〜1 に直し、パッチの埋め込み（768→768）に位置の表を足す
         out = {}
         x = 2.0 * (pixel_values - 0.5)
         h = self.patch_proj(x) + self.pos_emb
         if keep:
             out["patch_embed"] = h
+        # ② 16 層を順に通す（cos/sin は全層で同じバッファ）
         for i, ly in enumerate(self.layers):
             h = ly(h, self.cos, self.sin)
             if keep:
                 out[f"layer_{i}"] = h
+        # ③ 3×3 のプーリング → 射影層（重みなしの RMSNorm と 768→1536 の行列）で文章側の大きさの特徴にする
         p = self.pool(h)
         if not self.fold_pool_scale:
             p = p * self.pool_scale

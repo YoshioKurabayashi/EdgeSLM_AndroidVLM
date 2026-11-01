@@ -50,6 +50,12 @@ report は集計のたびに、いまの judge.py で判定を付け直す（フ
 
 2026-09-28 より前の結果には生成したトークンの ID（gen_ids）が無い。`--refill-ids` を付けて同じ条件を動かすと、
 gen_ids の無い問題だけやり直す（貪欲なので答えは同じになるはず）。
+
+## 主な結果（`results/P1_20260928_pc_eval.md`。StudyMemo 3.2・5 章・12.3.4）
+
+- 画像トークン数で品質は大きく変わる: 自動判定の部分点の平均 0.37（70）→ 0.47（140）→ 0.61（280）
+- 固定の格子（レターボックス）でも落ちない: fixed/70 は 0.35、native/70 は 0.37（入れ替わり 7↑・9↓）
+- 動かす venv は Phase 1 の EdgeSLM_MultiHead_Multi（$PY1。HF の Gemma 4 を CUDA で）。入力は work/eval/manifest.json（126 問）
 """
 from __future__ import annotations
 
@@ -69,6 +75,7 @@ RES = C.RESULTS / "P1_ref_vlm"
 MANIFEST = C.EVAL_DIR / "manifest.json"
 
 
+# 評価の一覧（work/eval/manifest.json）を読む。無ければ fetch_eval_data を先に流すよう促して止める。
 def load_manifest() -> dict:
     if not MANIFEST.exists():
         raise SystemExit(f"{MANIFEST} が無い。先に python -m app.pipeline.fetch_eval_data を動かすこと")
@@ -80,6 +87,7 @@ def vision_label(vision: str) -> str:
     return "npz-" + Path(vision[4:]).stem if vision.startswith("npz:") else vision
 
 
+# 条件（前処理・画像トークン数・SRQ・流し方・画像エンコーダ）から結果のファイル名を作る（既定の条件の部分は名前に入れない）。
 def out_path(prep: str, budget: int, srq: bool, feed: str = "hf", vision: str = "hf") -> Path:
     return RES / (f"{prep}_{budget}{'' if srq else '_nosrq'}{'' if feed == 'hf' else '_' + feed}"
                   f"{'' if vision == 'hf' else '_v' + vision_label(vision)}.json")
@@ -103,7 +111,13 @@ def run_name(d: dict) -> str:
 
 
 def run(a) -> None:
+    """条件ごとに 126 問（または絞った問題）を HF で解き、答え・判定・時間を 1 問ごとに結果の JSON に書き足す。
+
+    引数: a = コマンドの引数（prep・budgets・sets・only・limit・device・no_srq・refill_ids・vision・feed）。
+    画像エンコーダを差し替える（--vision）ときは、特徴を作ってから文章側に入れて答えを作り、HF の特徴との cos も残す。
+    """
     from app.pipeline import hf_vlm as H
+    # ① 問題を絞る（--sets・--only・--limit）
     man = load_manifest()
     items = man["items"]
     if a.sets:
@@ -118,6 +132,7 @@ def run(a) -> None:
                 sel.append(it)
                 cnt[it["set"]] += 1
         items = sel
+    # ② 条件の組み合わせを確かめる（モデルを読む前に）。npz の特徴は読み込んで、格子が合うかも見る
     budgets = [int(b) for b in a.budgets.split(",")]
     # 使えない画像トークン数は、モデルを読む前に弾く（読み込みに 1 分ほどかかるため）
     ok_b = C.FIXED_GRIDS if a.prep == "fixed" else C.SUPPORTED_SOFT_TOKENS
@@ -144,6 +159,7 @@ def run(a) -> None:
         st_ = zp.stat()
         vision_src = {"path": str(zp), "size": st_.st_size, "mtime": int(st_.st_mtime)}
         print(f"  画像の特徴: {zp}（{len(npz_feats)} 枚、格子 {npz_tag}）", flush=True)
+    # ③ モデルを読み込む（SRQ あり・なし）。自前の配線を使うときは vit_graph の SRQ も合わせる
     srq = not a.no_srq
     model, proc = H.load(a.device, srq=srq)
     RES.mkdir(parents=True, exist_ok=True)
@@ -154,6 +170,7 @@ def run(a) -> None:
         from app.pipeline import vit_graph as V
         V.SRQ = (a.vision == "own")
 
+    # ④ 画像トークン数ごとに: 前の結果があれば続きから、1 問ずつ解いて書き足す
     for budget in budgets:
         path = out_path(a.prep, budget, srq, a.feed, a.vision)
         vit = None
@@ -226,6 +243,7 @@ def run(a) -> None:
 # ---------------------------------------------------------------------------
 # 集計
 # ---------------------------------------------------------------------------
+# 例: 「42/123（0.45）」。judge の ok が None（自動判定しない問題）は数えない。
 def _agg(rows: list[dict]) -> str:
     """正解数/判定数（部分点の平均）の文字列。"""
     j = [r for r in rows if r["judge"]["ok"] is not None]
@@ -237,6 +255,10 @@ def _agg(rows: list[dict]) -> str:
 
 
 def report(_a) -> None:
+    """全部の結果ファイルを、いまの judge.py で判定し直して集計し、results/P1_ref_vlm/summary.md に書く。
+
+    表は 4 つ: 出どころ別・タグ別・時間（PC の参考値）・基準（HF の流し方・HF の画像エンコーダ）との比べ。最後に正誤が変わった問題の一覧。
+    """
     files = sorted(RES.glob("*.json"))
     if not files:
         raise SystemExit("結果が無い")
@@ -384,6 +406,7 @@ def rejudge(_a) -> None:
     print("-> report で集計し直すこと")
 
 
+# run・rejudge・report のどれかを動かす。
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["run", "rejudge", "report"])

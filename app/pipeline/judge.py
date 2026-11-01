@@ -18,6 +18,13 @@
 - ref_text: 正解の文との「文字の再現率」（正解の文字のうち、答えに同じ順で現れた割合＝LCS の長さ÷正解の長さ）。
   0.9 以上を ok とする（句読点の揺れ程度は許す）
 - どちらも無い: 判定しない（ok=None）
+
+## 使い方（2026-10-18 追記）
+
+ref_vlm・device_vlm・device_spec などが `judge(answer, item)` を import して使う（item は評価セットの manifest.json の 1 件）。
+戻り値はどれも {"ok": True/False/None, "score": 0〜1 または None, "hits": グループごとの当たり または None}。
+単体で動かすと自己テストだけを行う: `python -m app.pipeline.judge`（"judge: ok" が出れば合格）。
+解説: StudyMemo（EdgeSLM_AndroidVLM）05「評価の組み立て」（罠 1〜3）・VLMSpec 06 の 4。
 """
 from __future__ import annotations
 
@@ -37,6 +44,7 @@ def normalize(s: str) -> str:
     - 波ダッシュ類をそろえる（〜 ～ ~）
     - 英字は小文字にそろえる（BOOK-OFF / Book-Off）
     """
+    # 上の箇条書きの順に処理する（番号を消すのは空白を消す前。空白が残っているうちでないと「番号＋空白」を見分けられない）
     s = unicodedata.normalize("NFKC", s)
     s = re.sub(r"(?m)^[ \t]*(?:[-*+][ \t]+)?(?:\*\*)?[0-9]{1,2}[.)](?:\*\*)?[ \t]+", "", s)
     s = s.replace("〜", "~").replace("～", "~")
@@ -56,6 +64,9 @@ def _hit(cand: str, ans_n: str) -> bool:
 
 
 def judge_keywords(answer: str, groups: list[list[str]]) -> dict:
+    """keywords 型の判定。答えを正規化し、グループごとに「候補のどれか 1 つが含まれるか」を見る。
+    ok = 全グループが当たり、score = 当たったグループの割合、hits = グループごとの当たり（True/False）の list。
+    """
     ans_n = normalize(answer)
     hits = [any(_hit(c, ans_n) for c in g) for g in groups]
     return {"ok": all(hits), "score": round(sum(hits) / len(hits), 4), "hits": hits}
@@ -75,6 +86,8 @@ def lcs_len(a: str, b: str) -> int:
 
 
 def judge_ref_text(answer: str, ref: str, ok_th: float = 0.9) -> dict:
+    """ref_text 型の判定（文字を読み上げる問い）。score = 正解の文字のうち、答えに同じ順で現れた割合（LCS ÷ 正解の長さ）。
+    ok = score が ok_th（0.9）以上。答えが正解より長くても下がらない（再現率だけを見る）。"""
     # 句読点は読み上げで落ちやすいので、比べる前に取り除く（文字の読み取りの力だけを見る）
     strip = lambda s: re.sub(r"[、。，．,.「」『』（）()・:：]", "", normalize(s))
     a, r = strip(answer), strip(ref)
@@ -115,6 +128,12 @@ def _ok_core(rest: str) -> bool:
 
 
 def answer_to_keywords(ans: str) -> list[list[str]]:
+    """JA-VG-VQA-500 の正解の文から、判定の語（グループ 1 つ・候補 1 つ）を作る。
+
+    段: ① NFKC と末尾の句読点を落とす → ② 語尾（_TAILS）を繰り返し落とす（芯が短すぎるなら落とさない）
+        → ③ 「数字＋3 文字以内」なら数字だけの正規表現、それ以外は芯の文字列そのもの
+    例: 「ピザがあります。」→ [["ピザ"]]、「6台」→ [["re:(?<![0-9.])6(?![0-9]|\\.[0-9])"]]
+    """
     core = unicodedata.normalize("NFKC", ans).strip()
     core = re.sub(r"[。．.!！?？、]+$", "", core)
     changed = True
@@ -137,6 +156,7 @@ def answer_to_keywords(ans: str) -> list[list[str]]:
 
 if __name__ == "__main__":
     # 簡単な自己テスト: python -m app.pipeline.judge
+    # 全角の数字・別の数字の一部（16 の中の 6）・語尾の落とし方・カンマ付きの数（1,200 の中の 200）・時刻の 05 と 5・英字の大小
     assert judge_keywords("６台あります。", answer_to_keywords("6台"))["ok"]
     assert not judge_keywords("16台あります。", answer_to_keywords("6台"))["ok"]
     assert judge_keywords("晴天です", answer_to_keywords("晴天"))["ok"]
@@ -167,6 +187,7 @@ if __name__ == "__main__":
     assert judge_keywords("水辺にいるカモメのような鳥が写っています。", answer_to_keywords("鳥です。"))["ok"]
     assert answer_to_keywords("います") == [["います"]]
     assert judge_keywords("1頭の動物が見えます", answer_to_keywords("1です"))["ok"]
+    # ref_text 型: 正解の前半だけ読めた答えは、再現率が 0.5〜0.7 の間になる（ok にはならない）
     r = judge_ref_text("本日は道路工事のため国道20号線の一部区間で片側交互通行となります",
                        "本日は道路工事のため、国道20号線の一部区間で片側交互通行となります。通行の際は誘導員の指示に従ってください。")
     assert 0.5 < r["score"] < 0.7, r

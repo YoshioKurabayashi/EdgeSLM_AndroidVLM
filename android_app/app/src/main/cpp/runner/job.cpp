@@ -1,3 +1,18 @@
+// job.cpp — 端末側の「ジョブの実行」（libedgeslm_runner.so の中心。2026-10-18 に学習用の説明を足した）
+//
+// 何のための部品か: PC や画面が作ったジョブ（JSON）を受け取り、開いてあるモデル（Session）で推論・生成・計測をして、
+//   結果を JSON で返す。EdgeSLM_AndroidDemo の job.cpp を写して広げたもの（Demo と同じ部分の説明は Demo から写した）。
+// このプロジェクト（EdgeSLM_AndroidVLM）で足したもの:
+//   - Phase 3（2026-09-29）: generate_kv で、プロンプトの画像トークンの位置に画像の特徴（image_features）を入れる。
+//     dialogs の要素ごとに特徴のファイルを替えられる（126 問の評価）。StudyMemo 2.5 節・9 章・11 章、コードは 13 章
+//   - Phase 5（2026-09-29）: 1 回で 16 トークン読むグラフ（inputs_embeds [1,16,H]）のための「複数トークンの経路」。
+//     StudyMemo 10.4・10.5 節。1 トークン版の経路は変えていない
+// 入力: run_job の job（task で枝が分かれる）と、開いたセッション（session.h の Session）。表・特徴のファイルは
+//   アプリの置き場（/sdcard/Android/data/org.edgeslm.vlm/files/）からの相対パスで job に書く。
+// 出力: 結果の JSON（RunnerService が files/out/last_result.json などに書き、PC は adb で読む。VlmActivity は JNI の戻り値で受け取る）。
+// 動かし方: PC からは app/pipeline/device_vit.py の run_job が jobs/ に job を置いて RunnerActivity（hold なら RunnerHoldActivity）を起こす
+//   （device_vlm eval・probe_t16 などが使う）。画面（VlmActivity）からは NativeBridge.nativeRunJob → edgeslm_jni.cpp → run_job。
+// 記録: results/P3_20260929_device_vlm.md（端末だけで 48/123）、results/P5_20261003_t16_accuracy.md（16 トークン版）。
 #include "runner/job.h"
 
 #include <android/log.h>
@@ -30,6 +45,9 @@ namespace {
 // 型ごとに作り方を変える。**整数入力を乱数バイトで埋めてはいけない**:
 // int64 を乱数バイトで埋めると天文学的な値になり、Gather の索引なら範囲外参照、
 // position_ids なら意味のない位置になる。実際の入力分布に寄せる。
+// 引数: s は開いたセッション（入力の名前・形・型は s.describe() から読む）、spec は job の "input"
+//       （kind: zeros / random、seed、int_max: 名前 → 整数入力の上限）。out に入力ごとのバイト列を入れ、失敗なら err に理由を書いて false。
+// 使う所: op_check（単体 op のモデルを実データ無しで開いて動かす）と bench（build_input 経由）。
 bool build_inputs(const Session& s, const json& spec,
                   std::vector<std::vector<uint8_t>>* out, std::string* err) {
     const json d = s.describe();
@@ -129,6 +147,7 @@ bool read_all(const std::string& path, std::vector<uint8_t>* out, std::string* e
     return true;
 }
 
+// バイト列をそのままファイルに書く（infer の出力を PC が adb pull で取りに来る）。失敗なら err に理由を書いて false。
 bool write_all(const std::string& path, const std::vector<uint8_t>& data, std::string* err) {
     std::ofstream f(path, std::ios::binary | std::ios::trunc);
     if (!f) { *err = "cannot write: " + path; return false; }
@@ -139,6 +158,8 @@ bool write_all(const std::string& path, const std::vector<uint8_t>& data, std::s
 }
 
 // fp16 → fp32（ビット操作。ツールチェーンの __fp16 対応に依存しない）
+// fp16 の並び: 符号 1bit・指数 5bit（偏り 15）・仮数 10bit。fp32（指数 8bit・偏り 127）へ、指数は +112、仮数は 13bit 左へ寄せて写す。
+// 指数 0 は「非正規化数」（仮数を左へずらして正規化し直す）、指数 31 は無限大か NaN
 inline float half_to_float(uint16_t h) {
     const uint32_t s = static_cast<uint32_t>(h & 0x8000u) << 16;
     uint32_t e = (h >> 10) & 0x1fu, m = h & 0x3ffu, f;
@@ -167,6 +188,8 @@ inline float half_to_float(uint16_t h) {
 struct MappedFile {
     const uint8_t* p = nullptr;
     size_t n = 0;
+    // path を読み取り専用で開いて全体を mmap し、p（先頭）と n（バイト数）を決める。fd は mmap の後すぐ閉じてよい
+    // （写像は fd が無くても残る）。片付け（munmap）は下の ~MappedFile がする
     bool open(const std::string& path, std::string* err) {
         const int fd = ::open(path.c_str(), O_RDONLY);
         if (fd < 0) { *err = "cannot open: " + path; return false; }
@@ -186,11 +209,14 @@ struct MappedFile {
     ~MappedFile() { if (p) munmap(const_cast<uint8_t*>(p), n); }
 };
 
+// 時計の今の値（ms、小数あり）。steady_clock は時刻合わせで戻らないので、区間の時間を測るのに使う
 double now_ms() {
     using clock = std::chrono::steady_clock;
     return std::chrono::duration<double, std::milli>(clock::now().time_since_epoch()).count();
 }
 
+// 時間の並びの要約を JSON で返す: median・p90（並べた位置の間を直線で補う）・min・max・mean・stddev（n−1 で割る）・n。
+// v は並べ替えるので値渡し（呼び出し側の並びは変えない）。空なら空の JSON
 json stats_of(std::vector<double> v) {
     json j;
     if (v.empty()) return j;
@@ -222,11 +248,23 @@ json stats_of(std::vector<double> v) {
 
 }  // namespace
 
+// このランナーが受け付ける task の名前か（RunnerService・JNI が、知らない task を早めに断るのにも使う）
 bool is_supported_task(const std::string& task) {
     return task == "probe" || task == "bench" || task == "op_check" || task == "infer" ||
            task == "generate" || task == "generate_kv";
 }
 
+// ジョブ 1 つを実行して、結果を JSON で返す（端末側の中心の関数。JNI の nativeRunJob から呼ばれる）。
+// 引数: session は開いたモデル（KV の持ち越し KvCarry もここが持つ）、job は jobs/*.json の中身、
+//       cancel_flag は画面の「停止」で true になる旗（各ループの頭で見る）。
+// task ごとの枝（上から順に見る）:
+//   probe       … 開けたかだけ返す
+//   infer       … PC が送った入力の .bin で 1 回ずつ推論し、出力を .bin で書く（PC が実機の精度を測る）
+//   generate    … 窓ずらしの生成（KV キャッシュなし。モデルは prefill 用の seq=W）
+//   generate_kv … KV キャッシュの生成。dialogs（独立した対話を続けて）・turns（複数ターン）・1 ターンの 3 つの入口
+//   op_check    … 単体 op のモデルを次々に開いて、NPU に全部載るかを判定する
+//   bench       … 1 つのモデルを繰り返し動かして時間を測る（どの task にも当たらなければここ）
+// 戻り値の共通の鍵: job_id・task・describe（モデルの入出力と NPU への載り方）・versions・ok（・error）
 json run_job(Session& session, const json& job, const bool* cancel_flag) {
     json out;
     const std::string task = job.value("task", std::string("probe"));
@@ -251,6 +289,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
     }
 
     if (task == "infer") {
+        // ① 置き方: job の batches は [{"id", "inputs": {入力名: 端末の相対パス}}]。出力は out_dir/<job_id>_<id>_<出力名>.bin
         // 実データを読んで推論し、出力を生バイト列で書き出す。
         // ホスト側が fp32 の参照と突き合わせて**実機での精度**を出す。
         const json batches = job.value("batches", json::array());
@@ -266,6 +305,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
             rec["id"] = id;
             if (cancel_flag && *cancel_flag) { rec["error"] = "cancelled"; records.push_back(rec); break; }
 
+            // ② バッチごとに: モデルの入力の順に .bin を読み、形×型の大きさと合うか確かめる
             // 入力を名前順（モデルの入力順）に読む
             std::vector<std::vector<uint8_t>> inputs;
             std::string err;
@@ -305,6 +345,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
                 continue;
             }
 
+            // ③ 推論して時間（OrtRun だけ、ms）を記録し、④ 出力を名前ごとに .bin に書いて、名前・パス・形・型を返す
             std::vector<std::vector<uint8_t>> outs;
             double ms = 0.0;
             if (!session.run(inputs, &ms, &outs)) {
@@ -358,6 +399,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
         // ホスト駆動版との違いは**呼び出し方だけ**である:
         //   あちら … 1トークンごとに am start + 1秒ポーリング（体感 約1秒/token）
         //   ここ   … セッションを開いたまま session.run() を回す（ロードは1回きり）
+        // ① 入出力の形を確かめる（input_ids は int64 [1, W]、logits は float32 [1, W, V] か [1, 1, V]）
         const json d = session.describe();
         if (!d.contains("inputs") || !d.contains("outputs")) {
             out["ok"] = false;
@@ -413,6 +455,8 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
             return out;
         }
 
+        // ② ジョブの設定を読む: prompt_ids（文のトークン）・max_new・pad_id（窓の左を埋める語。既定 151643 = <|endoftext|>）・
+        //    マスクの作り方・止めるトークン（既定 151645 <|im_end|>・151643 <|endoftext|>）
         std::vector<int64_t> prompt;
         for (const auto& v : job.value("prompt_ids", json::array())) {
             prompt.push_back(v.get<int64_t>());
@@ -509,6 +553,8 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
             return out;
         }
 
+        // ③ 途中経過（画面が 50ms ごとに読む）を始め、④ 1 トークンずつ生成する。
+        //    1 歩 = 窓を作る → マスクを作る → 推論 → 最終位置の argmax → 列に足す → 止めるトークンなら終わり
         GenProgress& prog = GenProgress::instance();
         prog.begin(max_new, static_cast<int>(W), prompt.size());
 
@@ -585,6 +631,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
                 break;
             }
         }
+        // ⑤ 結果をまとめる（生の時間の並びと要約、窓の大きさ、止まった理由）
         const double total_ms = now_ms() - t_start;
         prog.finish(gerr);
 
@@ -617,6 +664,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
         //   1.5B（1,481MiB）のロードを問題の数だけ繰り返すことになる（1回 3〜5秒、裏の経路なので
         //   lmkd に kill される機会も増える。EdgeSLM_AndroidScale P3）。
         //   対話ごとに**キャッシュを捨ててから**、`turns` と同じ手順で回す。
+        // 戻り値の dialogs は、対話ごとに下の turns の結果（{"ok", "turns": [...]}）を並べたもの。sub は dialogs を外した job の写し
         json results = json::array();
         json sub = job;
         sub.erase("dialogs");
@@ -655,6 +703,9 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
         //   安全側に倒れてキャッシュが捨てられる。2026-09-14 に実際にやった）。
         //   実際のチャットでも、足すのは「直前の応答を閉じる特殊トークンと、
         //   次のユーザー発話を包むテンプレート」だけで、**応答の中身に依存しない**。
+        // 1 ターン目は差分だけ、2 ターン目からは「これまでに実際にキャッシュへ入った列（KvCarry.tokens）＋差分」を
+        // prompt_ids にして下の 1 ターンの枝を呼ぶ。再利用は前方一致で判定されるので、ここで全履歴を組めば必ず一致する。
+        // 1 ターンでも失敗したら、そこで止める（壊れたキャッシュの上に積まない）
         json turns = json::array();
         json sub = job;
         sub.erase("turns");
@@ -695,6 +746,11 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
         //
         // キャッシュは「左シフトして末尾に書く」形（長さ L 固定）。
         // マスクは**末尾 n_valid 個だけ開ける**。cos/sin は位置ごとの表から取り出す。
+        // 全体の流れ（下の ①〜⑪）:
+        //   ① 入出力の対応づけ → ② 埋め込み表（と PLE の表）→ ③ 出力の対応 → ④ 設定 → ⑤ 位置の表 → ⑥ バッファ →
+        //   ⑦ 前のターンのキャッシュの再利用 → ⑧ 位置0 の K/V → ⑨ コピーを減らす仕掛け →
+        //   ⑩ 生成（⑩-a 画像の特徴を読む → ⑩-b 複数トークンの経路（Tm > 1）か ⑩-c 1 トークンずつのループ（Tm == 1））→
+        //   ⑪ 次のターンのための保存と結果
         const json d = session.describe();
         if (!d.contains("inputs") || !d.contains("outputs")) {
             out["ok"] = false;
@@ -702,6 +758,9 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
             return out;
         }
 
+        // ① 入力の名前で役を決める: input_ids か inputs_embeds（[1,Tm,H]。Tm は 1 回に入れる行の数）、logit_sel [1,Tm,1]、
+        //    attn_mask（1 トークン版 [1,1,1,L]、16 トークン版 [1,Tm,1,W]）、cos / sin（Gemma 4 は cos_s・sin_s・cos_g・sin_g の 2 組）、
+        //    ple_tok [1,Tm,層,次元]（Gemma 4 の層ごとの埋め込み）、past_*（KV キャッシュ。X = past_ の後ろの名前で、出力の present_X と組にする）
         // ---- 入出力の対応づけ ----
         int ids_idx = -1, mask_idx = -1, cos_idx = -1, sin_idx = -1;
         int emb_idx = -1;          // inputs_embeds（埋め込み表を CPU 側に出したモデル。1.5B）
@@ -757,6 +816,8 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
                            " / attn_mask / past_*";
             return out;
         }
+        // ② 語の ID → 埋め込みの行を CPU 側で引く表（埋め込みは NPU のグラフから外してある。Gemma 4 は 2bit の q2row、Qwen は bf16）。
+        //    mmap で開くだけ。その次の PLE の表（4bit）も同じく mmap
         // ---- 埋め込み表（inputs_embeds のモデルだけ）----
         MappedFile emb_tab;
         int64_t emb_rows = 0;
@@ -828,6 +889,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
             }
         }
 
+        // ③ 出力の名前で役を決める: logits [1,1,V] と present_X。すべての past_X に対になる present_X があるか確かめる
         int logits_idx = -1;
         int64_t V = 0;
         std::map<std::string, int> present_idx;   // X -> 出力番号
@@ -854,6 +916,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
             }
         }
 
+        // ④ ジョブの設定: prompt_ids・max_new・mask_neg（見せないスロットの値、既定 −60）・止めるトークン
         std::vector<int64_t> prompt;
         for (const auto& v : job.value("prompt_ids", json::array())) {
             prompt.push_back(v.get<int64_t>());
@@ -870,6 +933,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
             stop_ids.push_back(v.get<int64_t>());
         }
 
+        // ⑤ 位置の表（RoPE の cos / sin。Gemma 4 は局所と全体の 2 組）を丸ごと読む。毎ステップ、そのトークンの絶対位置の行を写す
         // ---- cos/sin の表を読む（[行][HD] の float32。位置ごとに1行使う）----
         const json ci = job.value("const_inputs", json::object());
         std::vector<uint8_t> cos_tab, sin_tab;
@@ -927,6 +991,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
             return out;
         }
 
+        // ⑥ 入力のバッファを、形×型の大きさで 1 回だけ確保する（ループの中では中身だけ書き換える）
         // ---- バッファを1回だけ用意する ----
         std::vector<std::vector<uint8_t>> inputs(d["inputs"].size());
         for (size_t i = 0; i < d["inputs"].size(); ++i) {
@@ -940,6 +1005,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
             inputs[i].assign(count * esz, 0);
         }
 
+        // ⑦ 前のターンの KV を使い回す。skip は「キャッシュに入っていて食わせ直さなくてよいトークンの数」
         // ---- 前ターンのキャッシュを引き継ぐ（`reuse_cache`）----
         //
         // 既定は false（従来どおり毎回ゼロから）。true のときだけ、
@@ -981,6 +1047,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
         }
         if (skip == 0) carry.reset();
 
+        // ⑧ 位置0 の K/V の扱い（pos0_kv のファイル、または pin_pos0 で窓に残す）。p0 は past_* の入力順に [KVH][HD] を並べたもの
         // ---- 位置0 の K/V を事前計算したものから始める（pos0_kv、EdgeSLM_AndroidScale S-3）----
         //
         // 1.5B は層0 のスコアが行ごとに −10,800 までずれるヘッドがあり、空きスロットを 0 で埋めると
@@ -1050,6 +1117,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
             pos0_skip = 1;
         }
 
+        // 途中経過（画面が読む）を始め、結果に入れる並び（作ったトークン・時間）を用意する
         GenProgress& prog = GenProgress::instance();
         prog.begin(max_new, static_cast<int>(L), prompt.size());
 
@@ -1059,6 +1127,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
         std::string gerr;
         bool stopped_by_eos = false;
 
+        // ⑨ コピーを減らす仕掛け（zero_copy・htp_shared_io）。どちらも job に書いたときだけ効き、書かなければ素直な写し方で動く
         // ★`zero_copy`（EdgeSLM_AndroidScale Phase 6）: CPU 側の無駄を減らす。**job に書いたときだけ**効く。
         //   従来は毎ステップ ①ORT が出力 57本（約15MB）を新しく確保 ②それを vector へ写す
         //   ③present を past へ写す、をしていた。ここでは出力を**こちらのバッファへ直接**書かせ、
@@ -1134,6 +1203,8 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
         auto past_buf = [&](int in_idx) -> uint8_t* {
             return past_in_a ? kvA[in_idx] : kvB[in_idx];
         };
+        // ⑩ の準備: 内訳の並び・最初の 1 トークンの上位 10・ループの状態（last＝直前に選んだ語、n_valid＝見せるスロットの数、
+        //    abs_pos＝次のトークンの絶対位置）。再利用したときは持ち越した値から、そうでなければ 0（位置0 を事前計算したなら 1）から始める
         std::vector<double> bd_prep, bd_run, bd_post;  // 1ステップの内訳（ms）: 準備 / 推論の呼び出し全体 / 後処理
         // ★**最初の1トークンだけ** top-K を残す。
         //   free-running の生成では最初の1手が軌道全体を決めるので、
@@ -1152,6 +1223,9 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
         int64_t abs_pos = (skip > 0) ? carry.pos : static_cast<int64_t>(pos0_skip);   // RoPE の絶対位置
         double prefill_ms = 0.0;
 
+        // ⑩ 生成。start_step（キャッシュに入っていない最初のトークン）と total_steps（プロンプト＋max_new）を決め、
+        //    ⑩-a 画像の特徴を読んでから、Tm > 1 なら ⑩-b（16 個ずつ読む）、Tm == 1 なら ⑩-c（1 トークンずつ）で回す。
+        //    ⑩-c の 1 歩 = 埋め込み（画像の位置は特徴）→ 位置の表 → PLE →（pin_pos0）→ マスク → 推論 → KV を次の past に → argmax → 止めるか
         // プロンプトを1トークンずつ食わせてキャッシュを埋め、そのまま生成へ続ける。
         //
         // ★再利用したぶんは **1つも食わせ直さない**（`skip` から始める）。
@@ -1164,6 +1238,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
         const size_t start_step = skip + pos0_skip;     // 位置0 を事前計算したなら 1 から
         const size_t total_steps = prompt.size() + static_cast<size_t>(max_new);
 
+        // ⑩-a 画像の特徴（画像エンコーダの出力、1 枚 70 行 × 1536）を読み、プロンプトの画像トークンの数と合うかを確かめる
         // ★画像の特徴（EdgeSLM_AndroidVLM Phase 3、2026-09-29）。
         //   job に `image_features`（float32 [M][H] のファイル。画像エンコーダの出力 image_embeds）があれば、
         //   プロンプトの画像トークン（`image_token_id`、既定 258880）の位置に、前から順に 1 行ずつ入れる。
@@ -1177,6 +1252,8 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
         const int64_t img_tok = job.value("image_token_id", static_cast<int64_t>(258880));
         const int64_t img_pad = job.value("image_pad_id", static_cast<int64_t>(0));
         {
+            // これから食わせる位置の画像トークンを数え、特徴のファイルの行の数（大きさ ÷ (H × 4 バイト)）と同じかを確かめる。
+            // 合わなければ止める（黙って足りないまま入れると、画像の位置に別の画像の行や 0 が入ってしまう）
             int64_t n_img_prompt = 0;
             for (size_t t = start_step; t < prompt.size(); ++t) n_img_prompt += (prompt[t] == img_tok) ? 1 : 0;
             if (n_img_prompt > 0) {
@@ -1208,11 +1285,13 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
                 img_rows = n_img_prompt;
             }
         }
+        // 生成の記録用の変数（位置の表が尽きたか・pin_pos0 の回数・キャッシュに入ったトークンの数）と、時間の起点
         bool rope_exhausted = false;
         int64_t rope_exhausted_at = -1;
         int64_t pinned_steps = 0;                       // pin_pos0 で位置0 を書き戻した回数
         size_t fed_until = start_step;                  // 推論まで終わった（キャッシュに入った）トークンの数（先頭から）
         const double t_start = now_ms();
+        // ⑩-b 複数トークンの経路（16 トークン版。StudyMemo 10.4・10.5 節、グラフは app/pipeline/g4t_graph.py）
         // =====================================================================================
         // ★複数トークンの経路（Phase 5 のまとめ読み。モデルの inputs_embeds が [1,Tm,H] で Tm > 1 のとき）
         //
@@ -1226,11 +1305,15 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
         // マスクは 0 行目と同じ）で、その出力は使わない（新しい K/V も past に足さない）。
         // =====================================================================================
         if (Tm > 1) {
+            // この経路で使えない組み合わせ（pin_pos0・pos0_kv・zero_copy）を断る。そのあと past と present の形から
+            // Pm（past のスロット数、240）を決め、attn_mask の幅 W が Pm + Tm（240 + 16 = 256）と合うかを確かめる
             if (emb_idx < 0) gerr = "multi-token model needs inputs_embeds";
             if (pin_pos0 || job.contains("pos0_kv")) gerr = "pin_pos0 / pos0_kv are not supported with multi-token models";
             if (zero_copy) gerr = "zero_copy is not supported with multi-token models";
             if (rope_in.empty()) gerr = "multi-token model needs rope_tables (cos_s/sin_s/cos_g/sin_g)";
             int64_t Pm = 0;                                        // past のスロット数
+            // CacheIo = 1 組の past_X / present_X（入力番号・出力番号・KV のヘッド数・ヘッドの次元・present の行の数 Lo）。
+            // Lo は層 13・14 だけ W（256、窓全体）、ほかは Tm（16）
             struct CacheIo { int in_idx; int out_idx; int64_t kvh; int64_t hd; int64_t lo; };
             std::vector<CacheIo> cio;
             for (const auto& c : cache_in) {
@@ -1254,6 +1337,8 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
             auto fill_row = [&](int64_t r, int64_t tid, bool is_img, int64_t pos) -> bool {
                 float* e = reinterpret_cast<float*>(inputs[emb_idx].data()) + r * H;
                 const int64_t tab_id = is_img ? img_pad : tid;
+                // 埋め込み: 画像の位置は特徴の 1 行をそのまま写す（√H 倍しない）。文字は表を引いて戻す
+                // （q2row は 1 バイトに 2bit × 4 個、下位から。値は 0..3 から 2 を引いて × 行のスケール × embed_scale）
                 if (is_img) {
                     std::memcpy(e, img_raw.data() + static_cast<size_t>(img_next) * H * 4, static_cast<size_t>(H) * 4);
                     ++img_next;
@@ -1278,6 +1363,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
                         }
                     }
                 }
+                // PLE: 4bit を 2 つずつ詰めた行（下位が先）を、層ごとのスケール × ple_scale で戻す。画像の位置は tab_id = pad（0）の行
                 if (ple_idx >= 0) {
                     const size_t row = static_cast<size_t>(ple_layers) * static_cast<size_t>(ple_dim) / 2;
                     const auto* src = reinterpret_cast<const uint8_t*>(ple_tab.p) + static_cast<size_t>(tab_id) * row;
@@ -1295,6 +1381,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
                         }
                     }
                 }
+                // 位置の表（局所・全体の 2 組）の pos 行を、この行 r の場所へ写す
                 for (size_t k = 0; k < rope_in.size(); ++k) {
                     std::memcpy(inputs[rope_in[k].first].data() + static_cast<size_t>(r) * rope_bytes[k],
                                 rope_tab[k].data() + rope_bytes[k] * static_cast<size_t>(pos), rope_bytes[k]);
@@ -1308,6 +1395,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
                                  int64_t* best_out, double* ms_out, double* wall_out) -> bool {
                 const double s0 = now_ms();
                 const int64_t n = static_cast<int64_t>(toks.size());
+                // ① 埋め込み・PLE を 0 にしてから本物の行 n 個を埋める（空の行は 0 のまま）。位置は abs_pos から 1 ずつ
                 std::memset(inputs[emb_idx].data(), 0, inputs[emb_idx].size());
                 if (ple_idx >= 0) std::memset(inputs[ple_idx].data(), 0, inputs[ple_idx].size());
                 int64_t pos_last = 0;
@@ -1334,10 +1422,12 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
                         for (int64_t j = Pm; j <= Pm + rr; ++j) row[j] = 0.0f;
                     }
                 }
+                // logit_sel: 最後の本物の行（n−1）だけ 1。グラフの出口でその行だけを選ぶ（logits は 1 行 1MB なので 16 行ぶん写さない）
                 if (sel_idx >= 0) {
                     float* sl = reinterpret_cast<float*>(inputs[sel_idx].data());
                     for (int64_t r = 0; r < Tm; ++r) sl[r] = (r == n - 1) ? 1.0f : 0.0f;
                 }
+                // ② 推論（NPU）。s0〜tp が入力の準備、tp〜tr が推論の呼び出し
                 const double tp = now_ms();
                 double ms = 0.0;
                 if (!session.run(inputs, &ms, &outs)) { gerr = session.last_error(); return false; }
@@ -1356,9 +1446,11 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
                                     static_cast<size_t>(std::min(n, Pm) * ci.hd) * 4);
                     }
                 }
+                // ③ 見せる past の数（最大 240）・次の位置・キャッシュに入った数を n 進める
                 n_valid = std::min<int64_t>(n_valid + n, Pm);
                 abs_pos += n;
                 fed_until += static_cast<size_t>(n);
+                // ④ 選んだ行の logits から最大の語を選ぶ（logit_sel の無いモデルは [1,Tm,V] の n−1 行目を読む）
                 const float* row = reinterpret_cast<const float*>(outs[logits_idx].data());
                 if (sel_idx < 0) row += static_cast<size_t>(n - 1) * static_cast<size_t>(V);
                 int64_t best = 0;
@@ -1372,6 +1464,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
                                       [&](int64_t x, int64_t y) { return row[x] > row[y] || (row[x] == row[y] && x < y); });
                     for (int k = 0; k < 10; ++k) first_topk.push_back({{"id", idx[static_cast<size_t>(k)]}, {"logit", row[idx[static_cast<size_t>(k)]]}});
                 }
+                // ⑤ 時間の内訳（準備・推論・後処理）と 1 回の実時間を残す
                 const double s1 = now_ms();
                 bd_prep.push_back(tp - s0);
                 bd_run.push_back(tr - tp);
@@ -1383,6 +1476,8 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
                 return true;
             };
 
+            // ⑩-b の本体: プロンプトを 16 個ずつ読んでから、答えを 1 個ずつ作る（107 トークンなら 7 回で読み、7 回目の答えが 1 つ目）。
+            // prefill_ms には最後の回を入れない（その回は答えの 1 つ目として step_ms に数える。1 トークン版と同じ数え方）
             // ---- プロンプトを Tm 個ずつ読む（最後の回の答えが 1 つ目のトークン）----
             size_t t = start_step;
             int64_t best = 0;
@@ -1416,17 +1511,21 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
                 prog.push(best, wall, ms);
                 if (std::find(stop_ids.begin(), stop_ids.end(), best) != stop_ids.end()) stopped_by_eos = true;
             }
+            // まとめ読みの記録（結果の multi_token）: Tm・past の長さ・logit_sel の有無・プロンプトを読んだ回数・1 回ごとの実時間
             json cj = json::array();
             for (double v : chunk_ms) cj.push_back(std::round(v * 100.0) / 100.0);
             out["multi_token"] = {{"Tm", Tm}, {"past_len", Pm}, {"logit_sel", sel_idx >= 0},
                                   {"prefill_runs", static_cast<int64_t>((prompt.size() - start_step + Tm - 1) / Tm)},
                                   {"chunk_ms", cj}};
         }
+        // ⑩-c 1 トークン版の経路（Tm == 1）。画像の位置の扱い（is_img・tab_id）は Phase 3 で足した
         if (Tm <= 1)
         for (size_t t = start_step; t < total_steps; ++t) {
             if (cancel_flag && *cancel_flag) { gerr = "cancelled"; break; }
             const double s0 = now_ms();
 
+            // このステップで食わせる語: 文の途中なら文の t 番目、生成に入ったら直前に選んだ語。画像の位置なら表を引かず
+            // 特徴の 1 行を入れ、PLE は pad（image_pad_id）の行を引く。文字の表の行は 2bit（q2row）か 16bit の値
             const int64_t tid = (t < prompt.size()) ? prompt[t] : last;
             const bool is_img = img_rows > 0 && t < prompt.size() && tid == img_tok;   // 画像の位置（Phase 3）
             const int64_t tab_id = is_img ? img_pad : tid;                             // PLE はこの ID の行を引く
@@ -1541,6 +1640,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
                 for (int64_t j = L - n_valid; j < L; ++j) mk[j] = 0.0f;
             }
 
+            // 推論。zero_copy なら出力の置き場をこちらで渡して直接書かせ、そうでなければ ORT が返した出力から present を past へ写す
             double ms = 0.0;
             const double tp = now_ms();
             const float* row = nullptr;
@@ -1601,12 +1701,14 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
                 }
                 p0_capture = false;
             }
+            // 次の語を選ぶ（いちばん大きい logit。温度やサンプリングは使わない＝PC の照合と同じ答えになる）
             int64_t best = 0;
             float bestv = row[0];
             for (int64_t k = 1; k < V; ++k) {   // 同点は先勝ち（numpy.argmax と同じ）
                 if (row[k] > bestv) { bestv = row[k]; best = k; }
             }
             // ★最初の1トークンを出す回だけ記録する
+            // 文の最後のトークンを食べた回（＝最初の 1 トークンを選ぶ回）だけ、上位 10 と probe_ids の順位を記録する（V 回×10 の素直な探し方）
             if (t == prompt.size() - 1) {
                 const int K = 10;
                 std::vector<int64_t> top;
@@ -1634,6 +1736,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
                 }
             }
 
+            // 時間の記録: プレフィル中は prefill_ms に足すだけ。生成に入ったら語を足して、止めるトークンか max_new で抜ける
             const double s1 = now_ms();
             bd_post.push_back(s1 - tr);
 
@@ -1653,6 +1756,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
             }
             if (static_cast<int>(newly.size()) >= max_new) break;
         }
+        // zero_copy で入れ替えた結果、最後の past が inputs 側に無いことがあるので、保存の前に inputs へ写しておく
         const double total_ms = now_ms() - t_start;
         if (zero_copy && (shared_io || !past_in_a)) {
             // 最後の past を inputs 側へ写す（carry は inputs を読む。ターンに1回）。**入れ替え（swap）はしない**——
@@ -1663,6 +1767,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
         }
         prog.finish(gerr);
 
+        // ⑪ 次のターンへの持ち越し（KvCarry）と、結果の JSON
         // ---- 次のターンのためにキャッシュを保存する ----
         //
         // ★**失敗したときは保存しない。** 途中で落ちたキャッシュを引き継ぐと、
@@ -1702,6 +1807,8 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
             carry.reset();
         }
 
+        // 結果: 作ったトークン・時間（生の並び・要約・内訳）・再利用や位置の記録・画像の特徴を入れた数。
+        //   PC の device_vlm.py（eval・holdcheck）と画面（VlmActivity）がこれを読む
         out["new_ids"] = newly;
         out["step_ms"] = step_ms;
         out["ort_run_ms"] = stats_of(ort_ms);
@@ -1755,6 +1862,8 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
         //   pass_cpu_boundary  … 開けたが CPU フォールバックあり。delegate しきれていない
         //   open_failed        … ロードで落ちた（C-1〜C-7 / op 非対応）
         //   run_failed         … 開けたが実行で落ちた
+        // ① models は文字列（パス）か {"model", "name", "input"} の並び。② 1 つずつ開き直し、③ 入力を作って warmup＋iterations 回動かし、
+        // ④ 開けた・動いた・全ノード NPU か、で 4 つに分けて数える
         json results = json::array();
         const json models = job.value("models", json::array());
         const json proto = job.value("protocol", json::object());
@@ -1847,6 +1956,7 @@ json run_job(Session& session, const json& job, const bool* cancel_flag) {
         return out;
     }
 
+    // どの task にも当たらなかったときはここ（bench）。① 入力を 1 つ作り、② warmup 回は捨てて（値は残す）、③ iterations 回の時間を測る
     // ---- bench ----
     const json proto = job.value("protocol", json::object());
     const int warmup = proto.value("warmup", 3);

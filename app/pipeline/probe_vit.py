@@ -20,6 +20,12 @@ CPU に逃げずに全部 NPU で動いてはいる（strict=true）ので「動
 
 量子化・変換の手順は本番（quantize_vit・build_vit_ctx）と同じ（SRQ なしの版だけ）。比べる相手は同じ探り用グラフの
 PC の QDQ（ORT CPU・最適化なし）と float の ONNX。結果は `results/P2_vit_device/probe_*.json`。
+
+## 結果（2026-09-29、StudyMemo 8.2〜8.5 節・results/P2_20260929_vit_device.md）
+
+- 2 層版の変換は 89 秒（16 層は 56 分）。最初の出力（パッチの埋め込み）で既に端末 ↔ PC の QDQ の相対 L2 が 21.8 → 層も softmax も関係なかった
+- 壊れ方を形で読むと、重みのスケール 4.0e-6 未満のチャネルが全部壊れ、4.1e-6 以上は全部正常（C-14）。
+  qat_inject_vit にスケールの下限（最大の 1/64）を足して直した
 """
 from __future__ import annotations
 
@@ -34,26 +40,31 @@ import numpy as np
 
 from app.pipeline import vlm_common as C
 
+# 量子化の方式（本番と同じ）、16 層版で途中の値を出す層の番号、結果の置き場
 SCHEME = "a16w8_rhs8"
 FULL_TAPS = (0, 1, 2, 4, 5, 7, 10, 15)
 RES = C.RESULTS / "P2_vit_device"
 PROBE_IDS = ("vg_00", "vg_13", "wild_18", "syn_sign")      # 評価用 16 枚から 4 枚（vg_00・vg_13 は HF の途中の値もある）
 
 
+# 予算からファイル名の札と格子を返す（横長の格子だけ）。
 def tag_for(budget: int) -> tuple[str, tuple[int, int]]:
     grid = C.FIXED_GRIDS[budget]
     return f"b{budget}_{grid[0]}x{grid[1]}", grid
 
 
+# 途中の値を出す層: 16 層版は FULL_TAPS、それより少ない版は全部の層。
 def taps_for(n_layers: int) -> list[int]:
     return [i for i in FULL_TAPS if i < n_layers] if n_layers == C.VIT_LAYERS else list(range(n_layers))
 
 
+# 出力の名前の並び（パッチの埋め込み・層の出力・16 層版だけプーリングの後と最終出力）。グラフの出力の順と同じ。
 def out_names(n_layers: int) -> list[str]:
     names = ["patch_embed"] + [f"layer_{i}" for i in taps_for(n_layers)]
     return names + (["pooled", "image_embeds"] if n_layers == C.VIT_LAYERS else [])
 
 
+# 探り用の版の置き場（work/ops/vitprobe_<札>_L<層の数>/）と、各段の生成物のパス。
 def paths(tag: str, n_layers: int) -> dict:
     name = f"vitprobe_{tag}_L{n_layers}"
     d = C.OPS / name
@@ -67,18 +78,22 @@ def paths(tag: str, n_layers: int) -> dict:
 # ---------------------------------------------------------------------------
 # 探り用のグラフ（vit_graph の部品をそのまま使い、途中の値も返す）
 # ---------------------------------------------------------------------------
+# 探り用のグラフを作る。VitGraph の部品をそのまま使い、層を n_layers に切り詰め、途中の値をまとめて出力にする（重みも計算も本番と同じ）。
 def make_probe(grid, n_layers: int):
     import torch
     from app.pipeline import vit_graph as V
 
+    # 探り用のグラフの本体（重み・計算は VitGraph と同じで、出力だけ多い）
     class ProbeGraph(torch.nn.Module):
         def __init__(self):
+            # 本番と同じ VitGraph を組み、層を n_layers に切り詰める（2 層版は変換が速い）
             super().__init__()
             self.vit = V.VitGraph(V.QatFile(), grid, fold_pool_scale=True).eval()
             self.vit.layers = self.vit.layers[:n_layers]
             self.taps = set(taps_for(n_layers))
 
         def forward(self, pixel_values):
+            # 戻り値: (パッチの埋め込み, 選んだ層の出力…[, プーリングの後, 最終出力]) の並び。out_names と同じ順
             v = self.vit
             h = v.patch_proj(2.0 * (pixel_values - 0.5)) + v.pos_emb       # 本番の run() と同じ式
             outs = [h]
@@ -95,6 +110,7 @@ def make_probe(grid, n_layers: int):
 
 
 def export(tag: str, grid, n_layers: int) -> dict:
+    """探り用のグラフを ONNX に書き出し、出力の名前と入口の演算（Sub）を確かめて、量子化の spec と較正データを置く。"""
     import onnx
     import torch
     from app.pipeline import vit_graph as V
@@ -139,6 +155,7 @@ def quantize(tag: str, n_layers: int) -> dict:
         raise SystemExit(f"prepare が通らない: {st.get('verdict')}")
     P["qdq_raw"].replace(P["qdq_ort"])
     lin = Q.vit_linears()
+    # この版に含まれる層の QAT の重みと、パッチの埋め込み（16 層版なら射影層も）だけを書き込みの対象にする
     keep = {k: v for k, v in lin.items()
             if (".encoder.layers." in k and int(k.split(".encoder.layers.")[1].split(".")[0]) < n_layers)
             or k == PFX + "patch_embedder.input_proj"
@@ -160,6 +177,7 @@ def quantize(tag: str, n_layers: int) -> dict:
 
 
 def convert(tag: str, n_layers: int) -> dict:
+    """build_vit_ctx と同じ手順で変換・検査・包む（重みは INT8 なので INT4 用の回避策は外す）。"""
     from app.pipeline import build_vit_ctx as B
     from app.pipeline import verify_artifacts, wrap_epctx
     P = paths(tag, n_layers)
@@ -182,6 +200,7 @@ def convert(tag: str, n_layers: int) -> dict:
     return {"sec": round(time.time() - t0, 1), "ctx_mib": round(bins[0].stat().st_size / 2**20, 1)}
 
 
+# --layers の版ごとに 書き出し → 量子化 → 変換 を流す。
 def cmd_build(a) -> dict:
     tag, grid = tag_for(a.budget)
     out = {}
@@ -205,6 +224,10 @@ def token_sim(x: np.ndarray) -> float:
 
 
 def cmd_device(a) -> dict:
+    """探り用の版を端末で動かし、途中の値ごとに端末 ↔ PC の QDQ（と QDQ ↔ float）を比べ、最初に大きくずれる所を出す。
+
+    入力は評価用 16 枚のうち PROBE_IDS の 4 枚（capture_vit の pixel_values）。端末へは generic の infer の job で送る。
+    """
     from app.pipeline import device_vit as D
     from app.pipeline.eval_qdq_vit import session
     from app.pipeline.export_vit import load_capture
@@ -226,6 +249,7 @@ def cmd_device(a) -> dict:
             print(f"（{P['epctx'].name} が無いので飛ばす。先に build）")
             continue
         print(f"\n== 探り用 {n} 層", flush=True)
+        # 包んだ ONNX の中に書かれた名前で、どの .bin が対応するかを探す（同じ置き場に古い .bin が残っていても取り違えない）
         raw = P["epctx"].read_bytes()
         bin_ = next(c for c in sorted(P["dir"].glob(f"{P['name']}_ctx*.bin")) if c.name.encode() in raw)
         model_rel = f"models/vitprobe/{P['epctx'].name}"
@@ -259,6 +283,7 @@ def cmd_device(a) -> dict:
                 ref_q[nm].append(y[0])
             for nm, y in zip(names, sf.run(None, {"pixel_values": x})):
                 ref_f[nm].append(y[0])
+        # 途中の値ごとに、端末 ↔ QDQ の相対 L2・cos、QDQ ↔ float の相対 L2、トークンの似かた（全部同じ値なら 1.0）、絶対値の最大を並べる
         rows = []
         print(f"  {'途中の値':14s} {'端末↔QDQ 相対L2':>16s} {'cos':>7s} {'QDQ↔float 相対L2':>17s} "
               f"{'トークンの似かた 端末/QDQ':>22s} {'max|x| 端末/QDQ':>18s}")
@@ -288,6 +313,7 @@ def cmd_device(a) -> dict:
 
 
 def main():
+    # build（書き出し → 量子化 → 変換）か device（端末で比べる）を動かし、results/P2_vit_device/probe_<札>_<コマンド>.json に書く
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["build", "device"])
     ap.add_argument("--budget", type=int, default=70, choices=sorted(C.FIXED_GRIDS))

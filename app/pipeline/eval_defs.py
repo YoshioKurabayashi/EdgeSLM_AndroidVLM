@@ -27,12 +27,20 @@
 全グループが当たれば正解、当たったグループの割合を部分点として記録する。
 `re:` で始まるものは正規表現（数字が別の数字の一部にならないように、など）。
 `keywords=None` の問題は自動判定しない（説明を求める問題。答えは記録し、後で人が読む）。
+
+## 使う段・入力と出力
+
+- 評価セットの準備（StudyMemo 5 章「評価の組み立て」）。このファイルは定義だけで、動かすものは無い
+- 読む道具: fetch_eval_data（画像を取得して work/eval/manifest.json に 126 問を並べる）・synth_images（合成画像を描く）・
+  judge（判定）。ref_vlm・device_vlm は manifest を読むので、ここを直したら fetch_eval_data を流し直す
 """
 from __future__ import annotations
 
 # ---------------------------------------------------------------------------
 # 共通: 生成の上限など
 # ---------------------------------------------------------------------------
+# SYSTEM_PROMPT は Phase 1〜3 の評価の system 文（「前の system 文」）。Phase 5 の後で 1 行の新しい文に変えると点が上がった（StudyMemo 10.8 節。
+# 評価のときは device_vlm の --system で差し替える。この定義は変えていない）
 DEFAULT_MAX_NEW = 64      # 1 問あたりの生成トークンの上限（短く答えさせる）
 SYSTEM_PROMPT = "画像についての質問に、日本語で簡潔に答えてください。"
 
@@ -170,6 +178,8 @@ WILD_ANSWER_HEAD: dict[int, str] = {
 # ---------------------------------------------------------------------------
 # 画像は Claude が内容を目で確かめてから設問を付けた（2026-09-27）。
 # url は images.unsplash.com の直リンク（w=1600 に縮小して取得）。page は写真のページ（出どころの記録）。
+# 1 枚の形: {"id", "photo"（Unsplash の写真の ID）, "page", "desc"（何が写っているかの覚え書き）, "qs": [{"q": 質問, "tags", "kw": 判定の語}]}。
+# 1 枚に 1〜3 問付けて、13 枚で 21 問（eval_defs の冒頭の表）
 CAR_LICENSE = "Unsplash License"
 CAR_IMAGES = [
     {"id": "car_01", "photo": "photo-1574083986258-cf073732e55c", "page": "https://unsplash.com/photos/JxNorcyF12s",
@@ -266,6 +276,8 @@ CAR_IMAGES = [
 # 960×672（＝280 トークンの固定格子と同じ大きさ）のキャンバスに文字を描く。
 # 同じ文面を大きい字（_L）と小さい字（_S）で作り、画像トークン数（解像度）による差を見る。
 # lines: (文字列, 文字の大きさ px)。vertical=True は縦書き。
+# 1 枚の形: {"id", "style"（synth_images.STYLES の見た目）, "lines" または "text_block"＋"block_size" または "vertical", "qs": [...]}。
+# 問いの判定は "kw"（語のグループ）か "ref_text"（全文との文字の再現率）。13 枚で 15 問
 SYNTH_LICENSE = "本プロジェクトで作成（文面は架空）"
 SYNTH_W, SYNTH_H = 960, 672
 SYNTH_SPECS = [

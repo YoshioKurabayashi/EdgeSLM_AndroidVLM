@@ -14,8 +14,16 @@
 
 | 原因 | 書き直し | 小さいグラフでの効き目（層 0 の出力の差、画像の行） |
 |---|---|---|
-| ① QAIRT が正規化を HTP の RmsNorm にまとめると値がずれる | **正規化の「平均（ReduceMean）」を「1/N を並べた重み [N,1] との行列の掛け算（MatMul）」に**。RmsNorm の並びにならないので、まとめられない | まとめた版 150% → 24% |
+| ① （2026-10-01 の見立て。★下の訂正）QAIRT が正規化を HTP の RmsNorm にまとめると値がずれる | **正規化の「平均（ReduceMean）」を「1/N を並べた重み [N,1] との行列の掛け算（MatMul）」に**。RmsNorm の並びにならないので、まとめられない | まとめた版 150% → 24% |
 | ② 形 [16 行 × 256] の tanh が 3 行目以降で壊れる（PLE の gate の GELU、35 層） | **tanh の前後で形を [1, 1, 16×256] に変え、1 行の形で計算する** | ①と合わせて 20% |
+
+★2026-10-18 訂正: 旧「① QAIRT が正規化を HTP の RmsNorm にまとめると値がずれる」（原因と言い切っていた）。2026-10-03 の 7 段目で、
+ずれていたのは基準にした PC の CPU の方（正規化の途中の値 x²・平均・1/√ の目盛りを文章だけで決めたので、画像の行で切れる）で、
+NPU の RmsNorm は全部の行で正確（重みのない V の正規化の出力の二乗平均の平方根が 1.000）と分かった。① の書き直し（f）は
+NPU を CPU の誤った値に合わせるもので、画像が見えなくなった（「画像が無い」12 問）。② も、tanh の値が NPU と CPU で違うのは事実だが、
+直しても答えも logits も変わらなかった（t の版）。
+決定（2026-10-03、利用者）: 文章側は元の 16 トークン版（t16）で確定し、f・t の版は採用しない（StudyMemo 10.7 節の 6・7 段目、
+`results/P5_20261003_t16_accuracy.md`）。このファイルは、その切り分けで使った道具として残している。
 
 - どちらも**計算の中身は同じ**（PC の CPU で、書き直す前と後の差 0.000%。小さいグラフで確認済み）。ここでも全体で確かめる
 - 平均の重みは int8 で 127、目盛り 1/(127N)（＝ちょうど 1/N）。正規化 1 つに小さな行列の掛け算が 1 つ増えるが、重みは N 個だけ
@@ -41,6 +49,12 @@
 「画像が提供されていません」と答える誤りが 0 → 12 問に増えた。1 トークンあたりの時間も 87 → 101ms に伸びた（行列の掛け算 242 個ぶん）。
 1 トークン版（正規化は RmsNorm にまとまったまま）がいちばん HF に近い（97/126）ので、16 行のときだけ起きる不具合（②）だけを直した版を試す。
 t は tanh の前後で形を変えるだけなので、PC の CPU では元とビット単位で同じになるはず（確かめで 0.0000% を見る）。
+
+## 実行の記録（StudyMemo 10.7 節）
+
+- f: 変換 4.0 時間、context binary 1,467.5MiB（元と同じ）、検査は全部合格、変換後の RmsNorm 0 個。DDR の読みの見積もり 1.570GB（元 1.549GB）。
+  書き直す前と後の PC の CPU どうしの差は logits 18%（書き直しの誤りではなく、平均の 1 つの値が 1 目盛りずれたのが育ったもの。diag_t16fix で確かめた）
+- t: 変換 3.9 時間、1,467.1MiB、RmsNorm 242 個（元と同じ）、PC の CPU では元とビット一致（0.0000%）
 """
 from __future__ import annotations
 
@@ -56,6 +70,7 @@ import numpy as np
 from app.pipeline import device_vit as D
 from app.pipeline import vlm_common as C
 
+# 書き直しの元（build_t16 の繋いだ final_qdq と、その入出力の記録 io.json）。元は読むだけで変えない
 SRC = C.OPS / "g4t16_W256" / "g4t16_W256_final_qdq.onnx"
 SRC_IO = C.OPS / "g4t16_W256" / "io.json"
 # 版 → （グラフの名前、書き直しの種類）
@@ -73,11 +88,17 @@ def use(variant: str):
 
 
 use("f")
+# 既定の版は f（モジュールを読み込んだ時点で use("f") を済ませ、DST などの名前を決めておく）
 RES = C.RESULTS / "P5_t16"
 GIT_BASH = os.environ.get("GIT_BASH", r"C:\Program Files\Git\bin\bash.exe")
 
 
 def rewrite() -> dict:
+    """元の final_qdq を読み、ReduceMean と PLE の tanh を書き直して DST に保存する（段 rewrite）。
+
+    戻り値: 書き直した数・全体の数・時間・PC の CPU での同値の確かめ（equiv_check）の結果。
+    書き直しの部品（fix_normmm・fix_tanhflat）は probe_fix.py の小さいグラフで試したものをそのまま使う。
+    """
     import onnx
     import onnxruntime as ort
     from onnx import TensorProto, helper
@@ -85,12 +106,15 @@ def rewrite() -> dict:
     t0 = time.time()
     m = onnx.load(str(SRC))
     print(f"  読み込み {SRC.name}（{time.time() - t0:.0f}s、演算 {len(m.graph.node)}）", flush=True)
+    # ① probe_fix の Graph（ノードの出どころ・使い先を引ける包み）で包み、書き直す前の ReduceMean・Tanh の数を数える
     G = PF.Graph(m, batch=True)
     G.refresh()
     n_mean0 = sum(1 for n in G.g.node if n.op_type == "ReduceMean")
     n_tanh0 = sum(1 for n in G.g.node if n.op_type == "Tanh")
     # ---- 書き直しに要る形（ReduceMean と Tanh の入力）を ORT で 1 回回して取る ----
     need = sorted({n.input[0] for n in G.g.node if n.op_type in ("ReduceMean", "Tanh")})
+    # 書き直しの部品は入力の形を知る必要がある。ONNX に形が書かれていないので、入力の値を出力に足して
+    # 全部 0 の入力で 1 回だけ流し、形を PF.SHAPES に入れる。そのあと出力を元に戻す
     orig_out = [o for o in m.graph.output]
     keep_out = [helper.make_tensor_value_info(o.name, o.type.tensor_type.elem_type,
                                               [d.dim_value for d in o.type.tensor_type.shape.dim]) for o in orig_out]
@@ -115,6 +139,7 @@ def rewrite() -> dict:
           f"（tanh は全部で {n_tanh0} 個。残りは MLP の GELU の tanh で、壊れていないので触らない）", flush=True)
     if "normmm" in FIXES and c_mean != n_mean0:
         print(f"  ★平均の書き直しが {c_mean}/{n_mean0}（axes=[-1]・keepdims=1 でないものは残した。RmsNorm にまとめられる可能性）", flush=True)
+    # PLE の門の tanh は 35 層に 1 個ずつ。ちょうど 35 個でなければ、別の tanh を書き換えた・見落としたおそれがあるので止める
     if c_tanh != 35:
         raise SystemExit(f"PLE の tanh は 35 層ぶんのはずが {c_tanh} 個")
     DIR.mkdir(parents=True, exist_ok=True)
@@ -128,6 +153,8 @@ def rewrite() -> dict:
 
 def equiv_check() -> dict:
     """元と書き直した版を PC の CPU で同じ入力（syn_nav_S の最初の 2 回ぶん: system 文の 16 行、文字 8＋画像 8 行）に通して比べる"""
+    # 入力は diag_t16・probe_t16 の道具（端末と同じ入れ方を Python で作るもの）で作る。2 回目の past は元のグラフの 1 回目の出力にそろえる
+    # （書き直した版の出力を使うと、2 回目の差に 1 回目の差が混ざるため）。戻り値: 出力ごとの相対 L2 の最大と上位 5 本
     import gc
     from app.pipeline.diag_t16 import IMG, TABLES, Tables, load_items, old_prompt
     from app.pipeline.probe_t16 import Cpu, Feeder
@@ -159,6 +186,7 @@ def equiv_check() -> dict:
             outs[tag] = [cpu.run(f) for f in feeds]
         del cpu
         gc.collect()
+    # 出力ごと（logits と present の各本）に、2 回の中で大きい方の相対 L2 を取る
     worst = {}
     for b in range(2):
         for name, ref in outs["orig"][b].items():
@@ -173,6 +201,7 @@ def equiv_check() -> dict:
 
 
 def convert() -> dict:
+    """書き直した版を QAIRT で変換し、検査・包む（build_t16.convert と同じ手順）。入出力が元と同じか・RmsNorm の数・DDR の見積もりも記録する。"""
     from app.pipeline import verify_artifacts, wrap_epctx
     from app.pipeline.build_vit_ctx import run_streaming
     if not DST.exists():
@@ -202,11 +231,13 @@ def convert() -> dict:
     got_out = [[o["name"], o["shape"]] for o in info["outputs"]]
     same_io = got_in == [list(x) for x in src_io["inputs"]] and got_out == [list(x) for x in src_io["outputs"]]
     # 変換後のグラフ（DLC）の演算・DDR の見積もり
+    # DLC の中身をバイト列のまま数える（演算の名前の文字列の出てくる回数）。正確な数ではなく、RmsNorm が残ったかの目安
     dlc = DIR / "build" / f"{NAME}.dlc"
     b = dlc.read_bytes() if dlc.exists() else b""
     ops = {k: b.count(k.encode()) for k in ("RmsNorm", "Tanh", "FullyConnected", "ReduceMean")}
     del b
     gen = DIR / "build" / f"{NAME}_gen.log"
+    # 変換のログの「spill_bytes=…」などの行から、DDR へ書き出して読み戻す量の見積もりを読む
     ddr = {}
     if gen.exists():
         for k in ("spill_bytes", "fill_bytes", "write_total_bytes", "read_total_bytes"):
@@ -224,6 +255,7 @@ def convert() -> dict:
     return out
 
 
+# --steps の段を流し、results/P5_t16/build_t16fix.json（t の版は build_t16fix_t.json）に書く。済んだ段は飛ばす。
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--steps", default="rewrite,convert")

@@ -15,6 +15,11 @@
 | ① **RmsNorm にまとめた正規化がずれる** | QAIRT は「x² → 平均 → +eps → √ → 1/x → ×」の並びを HTP の RmsNorm 1 つにまとめる。まとめると画像の行の層 0 の K が 32〜39% ずれ、ばらしたままなら 4%。注意の後の正規化も入力 10% → 出力 45〜49% | 1 トークン版・16 トークン版 |
 | ② **[16 行 × 256] の tanh が 3 行目以降で壊れる** | 層ごとの埋め込み（PLE）の gate の GELU の tanh。0・1 行目は差 10% 前後、2〜15 行目は 90〜360%（1 トークン版は 11%） | 16 トークン版だけ |
 
+★2026-10-18 訂正: 旧「① RmsNorm にまとめた正規化がずれる」「② … tanh が壊れる」を原因と言い切っていた。2026-10-03 の 7 段目で、① でずれていたのは
+基準にした PC の CPU の方（正規化の途中の値の目盛りは文章だけで決めたもので、画像の行ではみ出して切れる）で、NPU の RmsNorm は正確と分かった。
+normmm は NPU を CPU の誤った値に合わせる書き直しで、全体に入れた版（t16f）は画像が見えなくなった。② も直しても答えは変わらなかった（t16t）。
+測った数字そのものは正しい（StudyMemo 10.7 節の 5〜7 段目）。
+
 ## 試す直し方（どれも計算の中身は同じ。書き方だけ変えて、NPU の問題のある部品を避ける）
 
 | 名前 | 書き換え | ねらい |
@@ -28,9 +33,22 @@
 1 トークン版は base・normmm。出力は層 0・1 の K/V と、途中の 3 か所（注意の後の正規化・PLE の GELU・層 0 の出力）。
 
 比べる相手は**書き換え前のグラフを PC の CPU で動かした値**（＝元の量子化済みグラフ。これが HF に近い）。
+（★2026-10-18 訂正: 旧「これが HF に近い」は当時の前提。画像の行では CPU の値も正しくない。上の訂正のとおり）
 書き換えたグラフを CPU で動かした値とも比べ、書き換えで計算が変わっていないことを確かめる。
 
 結果: `results/P5_t16/probe_fix.json`
+
+## 結果（2026-10-01、StudyMemo 10.7 節の 5 段目。NPU と元のグラフ（CPU）の差の中央値）
+
+| 版 | 層 0 の K 画像 | PLE の GELU 2 行目以降 | 層 0 の出力 文字 / 画像 | 変換後の RmsNorm |
+|---|---:|---:|---:|---:|
+| 書き換えなし | 38.9% | 44.8% | 9.5% / 150% | 12 |
+| mulsq | 38.9% | 44.8% | 9.5% / 150% | 12（まとめられたまま） |
+| normmm | 4.0% | 54.4% | 7.5% / 24% | 0 |
+| tanhflat | 38.9% | 7.4% | 6.8% / 147% | 12 |
+| normmm＋tanhflat | 4.0% | 6.9% | 6.2% / 19.6% | 0 |
+
+書き換えで CPU の計算が変わった量はどの版も 0.000%。この表を受けて build_t16fix で全体を書き直した（その後の訂正は上のとおり）。
 """
 from __future__ import annotations
 
@@ -47,6 +65,7 @@ from app.pipeline.probe_l0 import IO, compare, convert, make_feeds, paths, rewra
 from app.pipeline.probe_t16 import Cpu, Device
 
 RES = C.RESULTS / "P5_t16"
+# 書き換えの種類と、既定で作る 9 版（16 トークン版 7・1 トークン版 2）。版の名前は「<種類>_fx_<書き換えを _ でつないだもの>」
 FIXES = ("normmm", "mulsq", "tanhflat", "tanhsig")
 DEFAULT = ["t16_fx_base", "t16_fx_normmm", "t16_fx_mulsq", "t16_fx_tanhflat", "t16_fx_tanhsig",
            "t16_fx_normmm_tanhflat", "t16_fx_normmm_tanhsig", "t1_fx_base", "t1_fx_normmm"]
@@ -55,6 +74,7 @@ WATCH = {"node_mul_17": "注意の後の正規化", "node_mul_34": "PLE の GELU
 PRESENTS = ["present_k_0", "present_v_0", "present_k_1", "present_v_1"]
 
 
+# 版の名前を (種類 "t16"/"t1", 書き換えの並び) に分ける。読めない名前は止める。
 def parse(variant: str) -> tuple[str, list[str]]:
     kind, rest = variant.split("_fx_")
     fx = [] if rest == "base" else rest.split("_")
@@ -67,14 +87,19 @@ def parse(variant: str) -> tuple[str, list[str]]:
 # ---------------------------------------------------------------------------
 # QDQ のグラフの小さな道具
 # ---------------------------------------------------------------------------
+# ONNX のグラフを書き換えるための小さな包み。値の名前から「作る演算（prod）」「使う演算（cons）」「初期値（inits）」を引ける。
+# 書き換えるたびに refresh で表を作り直す。新しく作る名前は fx<番号>_ で始めて、元の名前と重ならないようにする。
+# build_t16fix は全体のグラフ（演算 2 万超）を batch=True で書き換える。
 class Graph:
     def __init__(self, m, batch: bool = False):
+        # m = 書き換える ONNX のモデル（中身をその場で書き換える）。n_new は新しい名前の通し番号
         self.m, self.g = m, m.graph
         self.n_new = 0
         # batch=True: 置き換えをためておき、commit() で 1 回だけ並べ直す（全体のグラフは演算が 2 万を超えるので、1 つずつ並べ直すと遅い）
         self.batch = batch
         self.pending: dict[str, list] = {}
 
+    # 値の名前 → 作る演算・使う演算の並び・初期値の表を作り直す（書き換えの前に呼ぶ）
     def refresh(self):
         self.prod = {o: n for n in self.g.node for o in n.output}
         self.cons: dict[str, list] = {}
@@ -83,16 +108,19 @@ class Graph:
                 self.cons.setdefault(x, []).append(n)
         self.inits = {t.name: t for t in self.g.initializer}
 
+    # 重ならない新しい名前を作る
     def name(self, base: str) -> str:
         self.n_new += 1
         return f"fx{self.n_new}_{base}"
 
+    # 定数を初期値として足し、その名前を返す
     def const(self, base: str, arr: np.ndarray) -> str:
         from onnx import numpy_helper
         nm = self.name(base)
         self.g.initializer.append(numpy_helper.from_array(np.asarray(arr), nm))
         return nm
 
+    # 初期値の中身を numpy の配列で返す
     def value(self, nm: str) -> np.ndarray:
         from onnx import numpy_helper
         return numpy_helper.to_array(self.inits[nm])
@@ -154,6 +182,8 @@ class Graph:
 
 def fix_normmm(G: Graph) -> int:
     """ReduceMean(x², axes=[-1], keepdims=1) → MatMul(x², W)。W は [N,1] で全部 1/N（int8 で 127、scale 1/(127N)）"""
+    # 戻り値: 書き換えた数。最後の軸の平均（keepdims=1）だけを書き換え、それ以外の ReduceMean は残す。
+    # N は入力の最後の次元（SHAPES から）。重みは DQ を通した int8 の定数にして、量子化済みのグラフの形（Q/DQ に挟まれた演算）を保つ
     from onnx import helper
     G.refresh()
     k = 0
@@ -178,6 +208,7 @@ def fix_normmm(G: Graph) -> int:
 
 def fix_mulsq(G: Graph) -> int:
     """Pow(x, 2) → Mul(x, x)（正規化の x² だけ。指数が 2 の Pow）"""
+    # 指数は DQ を通した定数なので、整数・スケール・ゼロ点から値を戻して 2 かを確かめる（戻り値: 書き換えた数）
     from onnx import helper
     G.refresh()
     k = 0
@@ -204,6 +235,7 @@ def ple_tanh_nodes(G: Graph) -> list:
 
 def fix_tanhflat(G: Graph) -> int:
     """x → Reshape[1,1,T×256] → Q/DQ → Tanh → Q/DQ → Reshape[元の形] → （元の tanh の出力の名前）"""
+    # 戻り値: 書き換えた数。新しい Q/DQ の目盛りは元の tanh の入力・出力の目盛りをそのまま使うので、CPU での計算は変わらない
     from onnx import helper
     k = 0
     for n in ple_tanh_nodes(G):
@@ -231,6 +263,8 @@ def fix_tanhflat(G: Graph) -> int:
 
 def fix_tanhsig(G: Graph) -> int:
     """tanh(x) = 2·sigmoid(2x) − 1。新しいテンソルの目盛り: 2x は x の 2 倍、sigmoid は [0,1]、2·sigmoid は [0,2]（16bit）"""
+    # 定数 2 と −1 は uint16 の DQ で作る（2 = 65535 × 2/65535、−1 = (0 − 65535) × 1/65535）。
+    # 新しい目盛りを作るので CPU の計算もわずかに変わる（build_t16fix の説明では 0.5%。そのため全体には使わなかった）
     from onnx import helper
     k = 0
     for n in ple_tanh_nodes(G):
@@ -262,6 +296,7 @@ def fix_tanhsig(G: Graph) -> int:
     return k
 
 
+# 途中の値の名前 → 形。build_variant（と build_t16fix.rewrite）が書き換えの前に入れ、書き換えの関数が読む
 SHAPES: dict = {}
 
 
@@ -271,6 +306,7 @@ def build_variant(variant: str) -> dict:
     import onnxruntime as ort
     from onnx import TensorProto, helper
     global SHAPES
+    # 引数: variant = 版の名前。戻り値: 元・書き換えの数・入力・途中の値・形の辞書（taps.json にも書く）
     kind, fx = parse(variant)
     src = paths(f"{kind}_plain")["final"]
     if not src.exists():
@@ -298,6 +334,7 @@ def build_variant(variant: str) -> dict:
         counts[f] = {"normmm": fix_normmm, "mulsq": fix_mulsq, "tanhflat": fix_tanhflat, "tanhsig": fix_tanhsig}[f](G)
         if counts[f] == 0:
             raise SystemExit(f"{variant}: 書き換え {f} を当てる所が無い")
+    # 出力は層 0・1 の K/V と途中の 3 か所だけにする。形を知るためにもう一度 ORT で流し、形つきで宣言し直す
     outs = PRESENTS + list(watch.values())
     del G.g.output[:]
     G.g.output.extend([helper.make_tensor_value_info(o, TensorProto.FLOAT, None) for o in outs])
@@ -315,6 +352,7 @@ def build_variant(variant: str) -> dict:
     return info
 
 
+# 変換後の DLC の中の演算の名前の文字列を数える（RmsNorm にまとまったかの目安。正確な数ではない）。
 def dlc_counts(variant: str) -> dict:
     P = paths(variant)
     dlc = P["build"] / f"{P['name']}.dlc"
@@ -327,6 +365,8 @@ def dlc_counts(variant: str) -> dict:
 # ---------------------------------------------------------------------------
 # 比べる
 # ---------------------------------------------------------------------------
+# 出力ごとの差の中央値を、文字の行・画像の行に分けてまとめる。16 トークン版は文字の行を 0・1 行目と 2 行目以降にも分ける
+# （② の tanh は 2 行目以降で壊れていたため）。
 def summarize(variant: str, rows: list, feeds: dict, taps: list) -> dict:
     kind, _ = parse(variant)
     tname = {t["tensor"]: t["node"] for t in taps}
@@ -349,6 +389,7 @@ def summarize(variant: str, rows: list, feeds: dict, taps: list) -> dict:
 
 
 def main():
+    """build（版ごとに書き換え → 変換）と device（端末の NPU と、書き換え前のグラフの CPU の値を比べる）を流し、results/P5_t16/probe_fix.json に書く。"""
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", nargs="?", default="all", choices=["all", "build", "device"])
     ap.add_argument("--variants", default=",".join(DEFAULT))
@@ -378,6 +419,7 @@ def main():
             print(f"  変換後の演算: {rec['build'][v]['dlc']}", flush=True)
             C.write_json_atomic(out_path, rec)
     if a.cmd in ("all", "device"):
+        # ① 入力は probe_l0 と同じ（評価の問題のプロンプトの最初の 3 回ぶん）。比べる相手は書き換え前のグラフを CPU で動かした値
         tabs = Tables(TABLES)
         feeds = make_feeds(a.item, tabs)
         D.ensure_app()
@@ -394,6 +436,7 @@ def main():
                 cpu = Cpu(paths(base)["final"])
                 ref[kind] = [cpu.run(fd) for fd in (feeds["t16"] if kind == "t16" else feeds["t1"])]
         dev_res = rec.setdefault("device", {})
+        # ② 版ごとに: 書き換えたグラフの CPU の値が元と同じか（cpu_equiv_max）を確かめ、端末の NPU の値を元の CPU の値と比べる
         for v in variants:
             kind, fx = parse(v)
             P = paths(v)

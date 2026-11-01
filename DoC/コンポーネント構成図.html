@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EdgeSLM_AndroidVLM — コンポーネント構成図</title>
+<meta name="description" content="EdgeSLM_AndroidVLM（StudyMemo の土台）の全体構成：写真 → 前処理 → 画像エンコーダ → 文章側への差し込みの流れ、PC の評価・変換の道具・受け渡し・端末の VLM 検証アプリ・調べる道具と、関連プロジェクトとの関係">
+<!--
+  EdgeSLM_AndroidVLM コンポーネント構成図（2026-10-23 作成）
+  目的: StudyMemo（DoC/StudyMemo/00〜13 章）が前提にしているシステム全体を 1 枚で見られるようにする。
+        とくに「写真の前処理 → 画像エンコーダ → 文章側（Gemma 4 E2B）への差し込み」の流れを図で追えるようにする。
+  根拠: DoC/システム設計書.md（いまの形の全体）・DoC/要件定義書.md・DoC/引き継ぎ一覧.md（写したコードと md5）・
+        DoC/基本設計_Phase1〜5.md・README.md・StudyMemo 2 章（形の変化）・11 章（写真から答えまで）・12 章（地図）・
+        実際のソース（app/pipeline/・scripts/・android_app/app/src/main/）と results/ の記録。
+  各部品の下のソースの 1 行は、各ソースの冒頭の docstring・コメント（2026-10-18 に学習用の説明が足されたもの）から取った。
+  書き方: 1 ファイルで完結（外部の読み込みなし）。ブラウザでそのまま開く。CSS・色・凡例・3 列の形は
+        EdgeSLM_Android/DoC/コンポーネント構成図.html に合わせた（流れの節と「写し」の印だけ足した）。
+  更新の記録:
+    2026-10-23 作成。
+-->
+<style>
+  :root {
+    --paper: #EEF0F1; --surface: #FFFFFF; --surface-2: #F4F6F7;
+    --ink: #171B1E; --ink-muted: #5B6469; --ink-faint: #838C90;
+    --border: #D9DEE1; --border-soft: #E6E9EA;
+    --accent: #A85423; --accent-soft: #F2E3D4; --accent-soft-ink: #7A3D16;
+    --fw: #2C6A64; --fw-soft: #DCEDE9; --fw-soft-ink: #1D4A45;
+    --vendor: #3F5C8A; --vendor-soft: #DFE6F0; --vendor-soft-ink: #2A4568;
+    --probe: #7A6A8A; --probe-soft: #E7E1EE; --probe-soft-ink: #4F4364;
+    --data: #6B7570; --data-soft: #E7E9E4; --data-soft-ink: #4C534E;
+    --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Yu Gothic UI", "Meiryo", "Helvetica Neue", Arial, sans-serif;
+    --shadow: 0 1px 2px rgba(23,27,30,.06), 0 8px 24px -12px rgba(23,27,30,.14);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #12151A; --surface: #1A1F26; --surface-2: #212832;
+      --ink: #E7EAE4; --ink-muted: #9CA6A0; --ink-faint: #6E7A76;
+      --border: #2B323B; --border-soft: #232A32;
+      --accent: #E2874A; --accent-soft: #3A2A1D; --accent-soft-ink: #F3C89A;
+      --fw: #6FB0A8; --fw-soft: #1E3532; --fw-soft-ink: #A9D8D1;
+      --vendor: #8FB0E0; --vendor-soft: #223047; --vendor-soft-ink: #C2D6F2;
+      --probe: #B7A5CC; --probe-soft: #2C2637; --probe-soft-ink: #DCCFEE;
+      --data: #97A19B; --data-soft: #232722; --data-soft-ink: #C4CBC5;
+      --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px -12px rgba(0,0,0,.55);
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-sans); line-height: 1.55; }
+  .page { max-width: 1380px; margin: 0 auto; padding: 32px 20px 56px; display: flex; flex-direction: column; gap: 22px; }
+  .masthead { display: flex; flex-direction: column; gap: 8px; }
+  .masthead-top { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: .72rem; color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
+  h1 { font-size: 1.6rem; margin: 0; letter-spacing: -.01em; }
+  .tagline { color: var(--ink-muted); margin: 0; max-width: 90ch; font-size: .95rem; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 7px; font-size: .8rem; color: var(--ink-muted); }
+  .sw { width: 12px; height: 12px; border-radius: 3px; }
+  .sw--custom { background: var(--accent); } .sw--fw { background: var(--fw); } .sw--vendor { background: var(--vendor); }
+  .sw--probe { background: var(--probe); } .sw--data { background: transparent; border: 1.5px dashed var(--data); }
+
+  .diagram { display: grid; grid-template-columns: minmax(0,1.15fr) minmax(220px,.55fr) minmax(0,1fr); gap: 16px; align-items: start; }
+  @media (max-width: 1100px) { .diagram { grid-template-columns: 1fr; } }
+  .col { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); display: flex; flex-direction: column; }
+  .col-head { padding: 12px 16px; border-bottom: 1px solid var(--border-soft); font-family: var(--font-mono); font-weight: 700; font-size: .92rem; display: flex; flex-direction: column; gap: 2px; }
+  .col-sub { font-family: var(--font-sans); font-weight: 400; font-size: .74rem; color: var(--ink-faint); }
+  .col-body { padding: 14px; display: flex; flex-direction: column; }
+  .arrow { text-align: center; color: var(--ink-faint); font-family: var(--font-mono); font-size: .8rem; height: 22px; line-height: 22px; }
+  .arrow::before { content: "↓ "; }
+  .node { border: 1px solid var(--border); border-left-width: 4px; border-radius: 8px; padding: 9px 11px; background: var(--surface-2); display: flex; flex-direction: column; gap: 3px; }
+  .node--custom { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface-2)); }
+  .node--fw { border-left-color: var(--fw); }
+  .node--vendor { border-left-color: var(--vendor); background: color-mix(in srgb, var(--vendor-soft) 40%, var(--surface-2)); }
+  .node--probe { border-left-color: var(--probe); }
+  .node--data { border-style: dashed; border-left-style: dashed; border-left-color: var(--data); background: transparent; }
+  .nh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .nn { font-weight: 650; font-size: .88rem; }
+  .ch { font-family: var(--font-mono); font-size: .68rem; padding: 1px 6px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-soft-ink); white-space: nowrap; }
+  .nd { font-size: .77rem; color: var(--ink-muted); }
+  .nf { font-family: var(--font-mono); font-size: .7rem; color: var(--ink-faint); word-break: break-all; }
+  /* 2026-10-23 追加: ソースのファイル名と「何をするファイルか」の 1 行 */
+  .files { list-style: none; margin: 4px 0 0; padding: 6px 0 0; border-top: 1px dotted var(--border); display: flex; flex-direction: column; gap: 3px; }
+  .files li { font-size: .74rem; color: var(--ink-muted); line-height: 1.45; padding-left: .8em; text-indent: -.8em; }
+  .files li::before { content: "▸ "; color: var(--ink-faint); }
+  .files code { font-family: var(--font-mono); font-size: .72rem; font-weight: 650; color: var(--ink); word-break: break-all; margin-right: .5em; }
+  .grp { border: 1px dashed var(--border); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .grp-label { font-family: var(--font-mono); font-size: .7rem; color: var(--ink-faint); letter-spacing: .03em; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+  @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } }
+  .cbadge { display: inline-block; font-family: var(--font-mono); font-size: .66rem; padding: 0 5px; border-radius: 4px; background: var(--vendor-soft); color: var(--vendor-soft-ink); margin-right: 3px; }
+  .side { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border-soft); }
+  .side-label { font-family: var(--font-mono); font-size: .7rem; color: var(--ink-faint); }
+  .side p, .side ul { margin: 4px 0 0; font-size: .77rem; color: var(--ink-muted); }
+  .side ul { padding-left: 1.1em; }
+  .mid .node { margin-bottom: 0; }
+  .lr { text-align: center; color: var(--ink-faint); font-family: var(--font-mono); font-size: .76rem; padding: 6px 0; }
+
+  section { display: flex; flex-direction: column; gap: 12px; }
+  h2 { font-family: var(--font-mono); font-size: 1rem; margin: 0; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+  .card h3 { margin: 0 0 4px; font-size: .88rem; }
+  .card p { margin: 0; font-size: .79rem; color: var(--ink-muted); }
+  table { border-collapse: collapse; width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: .8rem; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border-soft); vertical-align: top; }
+  th { background: var(--surface-2); font-family: var(--font-mono); font-size: .74rem; color: var(--ink-muted); }
+  td code, .nd code, p code { font-family: var(--font-mono); font-size: .74rem; }
+  .side p code, .nd code { word-break: break-all; }
+  .tablewrap { overflow-x: auto; }
+  .footer { display: flex; flex-wrap: wrap; gap: 6px 18px; font-family: var(--font-mono); font-size: .7rem; color: var(--ink-faint); border-top: 1px solid var(--border); padding-top: 12px; }
+  /* 2026-10-23 追加（このプロジェクト用）: 「写し」の印と、端末の中の流れの節 */
+  .cp { display: inline-block; font-family: var(--font-mono); font-size: .64rem; font-weight: 400; padding: 0 5px; border-radius: 4px; background: var(--data-soft); color: var(--data-soft-ink); border: 1px solid var(--border); margin-right: .45em; text-indent: 0; }
+  .cp--mod { background: var(--accent-soft); color: var(--accent-soft-ink); }
+  .sw--copy { background: var(--data-soft); border: 1px solid var(--data); }
+  .flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(178px, 1fr)); gap: 10px; counter-reset: step; }
+  .step { position: relative; background: var(--surface); border: 1px solid var(--border); border-top-width: 4px; border-radius: 10px; padding: 10px 12px 11px; display: flex; flex-direction: column; gap: 4px; box-shadow: var(--shadow); }
+  .step--cpu { border-top-color: var(--accent); }
+  .step--npu { border-top-color: var(--vendor); background: color-mix(in srgb, var(--vendor-soft) 35%, var(--surface)); }
+  .step-no { font-family: var(--font-mono); font-size: .68rem; color: var(--ink-faint); display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+  .step-where { font-family: var(--font-sans); font-size: .66rem; padding: 0 6px; border-radius: 999px; }
+  .step--cpu .step-where { background: var(--accent-soft); color: var(--accent-soft-ink); }
+  .step--npu .step-where { background: var(--vendor-soft); color: var(--vendor-soft-ink); }
+  .step h3 { margin: 0; font-size: .88rem; }
+  .step p { margin: 0; font-size: .76rem; color: var(--ink-muted); }
+  .shape { font-family: var(--font-mono); font-size: .72rem; color: var(--ink); background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 6px; padding: 3px 6px; word-break: break-word; }
+  .step .src { font-family: var(--font-mono); font-size: .68rem; color: var(--ink-faint); word-break: break-all; }
+  .seqwrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .seq-title { font-family: var(--font-mono); font-size: .74rem; color: var(--ink-muted); }
+  .seq { display: flex; flex-wrap: wrap; gap: 4px; align-items: stretch; }
+  .tok { font-family: var(--font-mono); font-size: .68rem; border: 1px solid var(--border); border-radius: 5px; padding: 3px 6px; background: var(--surface-2); color: var(--ink-muted); display: flex; flex-direction: column; justify-content: center; line-height: 1.3; }
+  .tok b { color: var(--ink); font-weight: 650; }
+  .tok--img { background: color-mix(in srgb, var(--vendor-soft) 70%, var(--surface)); border-color: var(--vendor); color: var(--vendor-soft-ink); flex-direction: row; align-items: center; gap: 3px; }
+  .tok--img i { display: inline-block; width: 9px; height: 13px; border-radius: 2px; background: var(--vendor); opacity: .75; }
+  .rows { display: grid; grid-template-columns: max-content minmax(0,1fr); gap: 4px 12px; font-size: .77rem; color: var(--ink-muted); }
+  .rows dt { font-family: var(--font-mono); font-size: .72rem; color: var(--ink); }
+  .rows dd { margin: 0; }
+  @media (max-width: 560px) { .rows { grid-template-columns: 1fr; } .rows dd { margin-bottom: 4px; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="masthead">
+    <div class="masthead-top"><span>Component Overview · EdgeSLM_AndroidVLM</span><span>2026-10-23 作成（Phase 5 まで・文章側は 16 トークン版で確定 2026-10-03）</span></div>
+    <h1>EdgeSLM_AndroidVLM コンポーネント構成図</h1>
+    <p class="tagline">画像を読める LLM（VLM）を、Xperia 5 III（Snapdragon 888・HTP v68）の NPU だけで動かすための構成。写真を CPU で整え（前処理）、<strong>画像エンコーダ</strong>（ViT 16 層＋射影層。NPU・別プロセス）で 70 個のベクトルにし、<strong>文章側の Gemma 4 E2B</strong>（NPU・主プロセス）のプロンプトの「画像の席」に差し込んで、日本語で答えさせる。上の節がその流れ、下の 3 列が PC の道具・受け渡し・端末のアプリ。各部品の右上の番号は、対応する <strong>StudyMemo の章</strong>。各部品の下の ▸ の行は、その部品を作っているソースと、そのファイルが何をするか。</p>
+  </header>
+
+  <div class="legend" aria-label="凡例">
+    <span class="legend-item"><span class="sw sw--custom"></span>自作（このプロジェクトのソース）</span>
+    <span class="legend-item"><span class="sw sw--copy"></span><span class="cp">写し</span>他のプロジェクトから写したソース（<span class="cp cp--mod">写し＋変更</span>は写してから手を入れたもの）</span>
+    <span class="legend-item"><span class="sw sw--fw"></span>既存のフレームワーク（PyTorch・transformers・ONNX・ONNX Runtime）</span>
+    <span class="legend-item"><span class="sw sw--vendor"></span>Qualcomm の SDK・ハード（QAIRT・QNN・FastRPC・HTP）</span>
+    <span class="legend-item"><span class="sw sw--probe"></span>調べる・測る道具（本番の流れには入らない）</span>
+    <span class="legend-item"><span class="sw sw--data"></span>受け渡すファイル</span>
+  </div>
+
+  <section>
+    <h2>写真が答えになるまで — 端末の中の流れ（StudyMemo 2・9・11 章）</h2>
+    <div class="flow">
+      <div class="step step--cpu">
+        <div class="step-no"><span>① 写真を読む</span><span class="step-where">CPU・主プロセス</span></div>
+        <h3>読み込みと向き</h3>
+        <p>カメラアプリで撮った JPEG を 2 の累乗で間引いて復号し（12MP なら 1/4）、EXIF の向きを反映して RGB のバイト列にする。</p>
+        <div class="shape">4032×3024 → 756×1008 の RGB（例）</div>
+        <span class="src">VlmActivity.kt（Kotlin）・116ms</span>
+      </div>
+      <div class="step step--cpu">
+        <div class="step-no"><span>② 前処理</span><span class="step-where">CPU・C++</span></div>
+        <h3>固定の格子に収める</h3>
+        <p>縦横比を保って横 480×縦 336 に縮め（PIL の BICUBIC を固定小数点まで再現）、余白を黒で埋め（レターボックス）、16×16 のパッチに切って ÷255。NPU は形が変えられないので、どの写真も同じ形にする。</p>
+        <div class="shape">pixel_values [630, 768]（21×30 パッチ、1 パッチ＝16×16×3）</div>
+        <span class="src">vlm_prep.cpp（nativeVlmPrep）・17ms・PC と 108/108 枚ビット一致</span>
+      </div>
+      <div class="step step--npu">
+        <div class="step-no"><span>③ 画像エンコーダ</span><span class="step-where">NPU・別プロセス :probe</span></div>
+        <h3>ViT 16 層 → 3×3 平均 → 射影層</h3>
+        <p>パッチの埋め込み＋2 次元の位置 → ViT 16 層 → 3×3 のパッチを平均して 630 → 70 → 射影層（係数なしの RMSNorm ＋ 768→1536）で文章側と同じ大きさにする。</p>
+        <div class="shape">[630, 768] → [70, 768] → 特徴 [70, 1536]</div>
+        <span class="src">RunnerService2 が vit_b70_21x30_nosrq を開いたまま動かす・0.33 秒（NPU 0.24〜0.26 秒）・152MiB</span>
+      </div>
+      <div class="step step--cpu">
+        <div class="step-no"><span>④ プロンプト</span><span class="step-where">CPU・主プロセス</span></div>
+        <h3>ID の列を作る</h3>
+        <p>HF の chat template と同じ並びで、system 文・質問を端末のトークナイザで ID にし、画像の席として画像トークン（258880）を 70 個並べる。</p>
+        <div class="shape">約 104〜120 個の ID（下の帯）</div>
+        <span class="src">VlmActivity.kt・Gemma4Tokenizer.kt</span>
+      </div>
+      <div class="step step--cpu">
+        <div class="step-no"><span>⑤ 差し込み</span><span class="step-where">CPU・C++</span></div>
+        <h3>画像の席に特徴の行を入れる</h3>
+        <p>文章の ID は埋め込みの表（2bit）を引いて ×√1536。<strong>画像トークンの位置は、③の特徴の 1 行をそのまま</strong>（√1536 は掛けない）。PLE は pad（ID 0）の行、位置は連番、マスクは普通の因果マスク。</p>
+        <div class="shape">inputs_embeds [1, 16, 1536]・ple_tok [1, 16, 35, 256]</div>
+        <span class="src">job.cpp（generate_kv の image_features）</span>
+      </div>
+      <div class="step step--npu">
+        <div class="step-no"><span>⑥ 文章側</span><span class="step-where">NPU・主プロセス</span></div>
+        <h3>Gemma 4 E2B 16 トークン版</h3>
+        <p>プロンプトを 16 個ずつ読み（107 個なら 7 回）、最後の本物の行の logits から答えの 1 語目。以後は 1 語ずつ（本物 1 行＋空 15 行）。KV キャッシュは past 240 ＋新しい 16 ＝窓 256。</p>
+        <div class="shape">→ logits [1, 1, 262144] ＋ 新しい K/V</div>
+        <span class="src">g4t16_W256（1,467.1MiB、開いたまま）・最初の文字まで 0.60 秒・1 語 約 85ms（評価の中央値）</span>
+      </div>
+      <div class="step step--cpu">
+        <div class="step-no"><span>⑦ 表示</span><span class="step-where">CPU・主プロセス</span></div>
+        <h3>1 語ずつ見せる</h3>
+        <p>画面が 50ms ごとに途中経過を読み、ID を文字に戻して表示。止まるのは終わりの ID（106・1・50）か上限 96 語。上限で切れたら「…（長いので途中まで）」。</p>
+        <div class="shape">日本語の答え</div>
+        <span class="src">VlmActivity.kt（nativeProgress）・progress.cpp</span>
+      </div>
+    </div>
+
+    <div class="seqwrap">
+      <span class="seq-title">④⑤ のプロンプトの並び（1 問目）— 青い 70 個が「画像の席」。ここだけ inputs_embeds を③の特徴の行に差し替える</span>
+      <div class="seq" aria-label="プロンプトの並び">
+        <span class="tok"><b>&lt;bos&gt;</b></span>
+        <span class="tok"><b>&lt;|turn&gt;system</b>添付の画像を見て、…&lt;turn|&gt;</span>
+        <span class="tok"><b>&lt;|turn&gt;user</b></span>
+        <span class="tok"><b>&lt;|image&gt;</b>255999</span>
+        <span class="tok tok--img" title="画像トークン 258880 が 70 個"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>… <b>258880 × 70</b></span>
+        <span class="tok"><b>&lt;image|&gt;</b>258882</span>
+        <span class="tok"><b>質問</b>この画像を説明してください。&lt;turn|&gt;</span>
+        <span class="tok"><b>&lt;|turn&gt;model</b>→ 答え</span>
+      </div>
+      <dl class="rows">
+        <dt>文章の行</dt><dd>ID → 埋め込みの表（2bit、端末の CPU で引く）×√1536。PLE は ID の行を表から引く。</dd>
+        <dt>画像の行</dt><dd>③の特徴 [70, 1536] の 1 行をそのまま入れる。PLE は pad（ID 0）の行。位置・マスクは文章と同じ（Gemma 4 E2B は画像に特別な位置やマスクを使わない）ので、<strong>文章側のグラフは作り直さずに使える</strong>（PC で HF と logits がビット単位で一致。StudyMemo 6 章）。</dd>
+        <dt>同じ写真への 2 問目</dt><dd>差分（&lt;turn|&gt;…質問…&lt;|turn&gt;model）だけを送り、前の KV キャッシュと位置を持ち越す。位置が 240 を超えたら写真から作り直す。</dd>
+        <dt>PC の同じ処理</dt><dd>②は <code>hf_vlm.prepare_image</code>・<code>pixels_fixed_np</code>、⑤は <code>hf_vlm.device_style_embeds</code>（端末と同じ入れ方を PC の HF で再現し、答えの品質を比べる）。</dd>
+      </dl>
+    </div>
+  </section>
+
+  <div class="diagram">
+
+    <!-- ───────── PC ───────── -->
+    <div class="col">
+      <div class="col-head">PC（Windows）— 評価・変換・確かめる道具<span class="col-sub">app/pipeline/・scripts/。venv は借り物の 2 つ（パッケージは足さない）: $PY1＝EdgeSLM_MultiHead_Multi（CUDA の torch・transformers 5.14.1。HF で動かす道具）／$PY2＝EdgeSLM_Android（torch CPU・onnx・onnxruntime 1.30。書き出し・量子化・端末）／QAIRT 用 Python 3.10／Git Bash</span></div>
+      <div class="col-body">
+
+        <div class="node node--fw">
+          <div class="nh"><span class="nn">元のモデル Gemma 4 E2B（QAT モバイル版）</span><span class="ch">1・2</span></div>
+          <div class="nd"><code>google/gemma-4-E2B-it-qat-mobile-transformers</code>。EdgeSLM_AndroidGemma4 が取得したもの（<code>../EdgeSLM_AndroidGemma4/work/hf/</code>）を<strong>読むだけ</strong>。画像エンコーダ（16 層 ViT）も入っていて、重みは INT8・活性の目盛りも QAT 済み。PC の HF での評価の基準にも使う</div>
+        </div>
+        <div class="arrow">まず PC の HF で確かめる（Phase 1）</div>
+
+        <div class="grp">
+          <span class="grp-label">Phase 1 — 評価セットと PC での確かめ（$PY1）</span>
+          <div class="grid2">
+            <div class="node node--custom">
+              <div class="nh"><span class="nn">評価セットと判定（126 問）</span><span class="ch">5</span></div>
+              <div class="nd">一般の写真の質問（40）・日本の風景と看板の文字（50）・車の中と外の写真（21）・合成した文字と画面（15）の 126 問。連続フレームは Phase 4 で用意する予定（未着手）</div>
+              <ul class="files">
+                <li><code>eval_defs.py</code>評価セットの「定義」（どの画像に何を聞き、何が書かれていれば正解か）。1 か所にまとめ、なぜその問題が入っているかを追えるようにする</li>
+                <li><code>fetch_eval_data.py</code>公開データの画像を集め、合成画像と合わせて 1 つの一覧（work/eval/manifest.json）にする</li>
+                <li><code>synth_images.py</code>文字・画面・文書の合成画像を作る。正解の文字列が 1 つに決まり、文字の大きさだけを変えた対（_L／_S）を作れるため</li>
+                <li><code>judge.py</code>答えの自動判定。表記ゆれをそろえてから「本質の語が含まれているか」で見る。数字は別の数字の一部にならないよう正規表現で書く</li>
+              </ul>
+            </div>
+            <div class="node node--custom">
+              <div class="nh"><span class="nn">PC の HF で品質と配線を確かめる</span><span class="ch">4・6</span></div>
+              <div class="nd">画像トークン 70／140／280 ごとの品質、端末と同じ入れ方・流し方でも答えが同じか、入口の目盛りに収まるか</div>
+              <ul class="files">
+                <li><code>vlm_common.py</code>共通の置き場所とモデルの決まった数字（格子の表など）と小さな補助。各道具が読むだけで、直接は動かさない</li>
+                <li><code>hf_vlm.py</code><span class="cp cp--mod">一部写し</span>PC（transformers）で Gemma 4 E2B の QAT 版を画像つきで動かす共通部品（読み込み・SRQ の有無・固定の格子・端末と同じ入れ方）。読み込みの一部と生成の止め方は Gemma4 の ref_qat.py から</li>
+                <li><code>ref_vlm.py</code>PC で画像つきの日本語の品質を測る（126 問 × 画像トークン数・流し方・画像エンコーダの差し替え）→ results/P1_ref_vlm/summary.md</li>
+                <li><code>check_wiring.py</code>「文章側のグラフは作り直さずに使える」を検算する（HF の本来の経路と端末と同じ入れ方の logits を比べる）。画像の特徴の値域も調べる</li>
+                <li><code>onnx_scales.py</code>量子化済み ONNX から入口の目盛り（scale・zero point）を onnx 無しで読む。画像の特徴が、文章だけで較正した入口の範囲 [−7.03, 3.52] に収まるかを見るため</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="arrow">画像エンコーダを NPU 向けに（Phase 2）</div>
+
+        <div class="grp">
+          <span class="grp-label">Phase 2 — 画像エンコーダを v68 へ（書き出し → 量子化 → 変換）</span>
+          <div class="node node--custom">
+            <div class="nh"><span class="nn">組み直した画像エンコーダと書き出し</span><span class="ch">7</span></div>
+            <div class="nd">HF のコードをそのまま書き出さず、格子を固定して素の torch で書く（位置・cos/sin は定数、プーリングは reshape と平均、×√768 は射影層の RMSNorm の eps に吸収）。HF の出力と突き合わせて配線を確かめてから ONNX（opset 21）にする</div>
+            <ul class="files">
+              <li><code>capture_vit.py</code>HF の画像エンコーダの「正解」と量子化の較正の入力を取っておく（$PY1、CPU で計算して GPU の足し算の順序の差を混ぜない）</li>
+              <li><code>vit_graph.py</code>パッチの埋め込み → 16 層 → 3×3 プーリング → 射影層を格子固定で組む。重みは safetensors から直接読む。RMSNorm・Lin などの書き方は Gemma4 の gemma4_graph.py に倣った</li>
+              <li><code>export_vit.py</code>自前の配線を HF と突き合わせ（check）、ONNX に書き出し（export）、ORT の CPU で確かめる（ortcheck）。書き出しの約束は Gemma4 の export_chunk.py に合わせた</li>
+            </ul>
+          </div>
+          <div class="node node--custom">
+            <div class="nh"><span class="nn">量子化（A16W8）と QAT の値の書き込み</span><span class="ch">7・8</span></div>
+            <div class="nd">活性 16bit・重み 8bit。QAT の整数とスケールはそのまま写すので重みの誤差は 0。SRQ（活性の 8bit の丸め）あり・なしの 2 版を作り、いまは<strong>なしの版</strong>を使う。ほぼ 0 の重みのチャネルのスケールに下限を付ける（C-14）</div>
+            <ul class="files">
+              <li><code>quantize_vit.py</code>前処理 → 較正 → 量子化 → QAT の値 → C-8 を順に通し、v68 に渡せる final_qdq を 2 版作る</li>
+              <li><code>qat_inject_vit.py</code><span class="cp cp--mod">写し＋変更</span>QAT の整数とスケールを QDQ にそのまま書く。小さすぎる重みのスケールに下限 1/64 を付ける（C-14）。元は Gemma4 の qat_inject.py で、重みの一覧を画像エンコーダ用（112 本）に書き換えた</li>
+              <li><code>eval_qdq_vit.py</code>量子化した版を PC の ORT（最適化を切る）で動かし、HF との差と全 108 枚の特徴（答えの品質を見る材料）を作る</li>
+            </ul>
+          </div>
+          <div class="node node--vendor">
+            <div class="nh"><span class="nn">QAIRT で v68 の context binary に</span><span class="ch">7</span></div>
+            <div class="nd"><span class="cbadge">S5</span>qairt-converter: QDQ → DLC <span class="cbadge">S6</span>qnn-context-binary-generator: DLC → v68 の .bin（SRQ なし 165.4MiB）。630 トークンを一度に通すので、1 回に約 1GB を DDR に出し入れする見積もり</div>
+            <ul class="files">
+              <li><code>build_vit_ctx.py</code>final_qdq を QAIRT で context binary にし、C-1〜C-5 を検査して EPContext の ONNX で包む（1 版 46〜56 分）。中で build_context.sh を Git Bash から呼ぶ</li>
+              <li><code>scripts/build_context.sh</code><span class="cp">写し</span>S5〜S7。QDQ の ONNX → DLC → context binary → メタデータ。QAIRT 用の Python 3.10 で動かす（QAIRT は 2.48.0、--htp_socs sm8350）</li>
+              <li><code>scripts/qairt_converter_int4.py</code><span class="cp">写し</span>qairt-converter を、INT4 の重みを読めるように 1 行だけ直して起動する（SDK のファイルは変えない）。文章側の変換（QAIRT_INT4_PATCH=1）で使う</li>
+            </ul>
+          </div>
+        </div>
+        <div class="arrow">文章側をまとめ読みに（Phase 5）</div>
+
+        <div class="node node--custom">
+          <div class="nh"><span class="nn">Phase 5 — 文章側の 16 トークン版 g4t16_W256</span><span class="ch">10</span></div>
+          <div class="nd">NPU の 1 回の時間は重みを読む時間（1 回約 1.55GB）でほぼ決まるので、16 行まとめて読んでも 1.1 倍。読むのも答えを作るのもこの 1 本でやる（最初の文字まで 8.3 秒 → 0.6 秒）。入出力の約束だけを変え、層の中の計算と QAT の重みは 1 トークン版とビット単位で同じ。変換 3.9 時間・1,467.1MiB</div>
+          <ul class="files">
+            <li><code>g4t_graph.py</code>1 回で T（16）トークン読む形に入出力の約束を変える（past 240＋新 16＝窓 256、出力は新しい行の K/V と logit_sel で選んだ 1 行の logits）。層の計算は gemma4_graph.py のまま</li>
+            <li><code>build_t16.py</code>16 トークン版を作る: 書き出し → 自己確認 → 量子化 → QAT の値の書き込み → 繋ぐ → 変換。途中で止まっても同じコマンドで続きから</li>
+            <li><code>check_t16.py</code>変換（4 時間）の前に、繋いだ 16 トークン版を PC の ORT（CPU）で動かし、1 トークン版・HF と比べる</li>
+            <li><code>gemma4_common.py</code>下の写しの道具が読む置き場所の名前（ROOT・WORK・HF_DIR など）を、このプロジェクト用に置く（新規）。書くのはこのプロジェクト、モデルは Gemma4 を読むだけ</li>
+            <li><code>gemma4_graph.py</code><span class="cp">写し</span>文章側の decode の配線と重みの読み方（QAT のファイルから必要な層だけ直接読み、整数とスケールも持つ）</li>
+            <li><code>qat_inject.py</code><span class="cp">写し</span>QAT の整数とスケール・8bit の丸めを、量子化後の QDQ にそのまま書き込む</li>
+            <li><code>fix_float_inputs.py</code><span class="cp">写し</span>入口でないかたまりの量子化されない入力（ple_all・shared_*）に Q/DQ を 1 組はさむ（C-1）</li>
+            <li><code>merge_chunks.py</code><span class="cp">写し</span>かたまりごとに量子化した QDQ を 1 つのグラフに繋ぐ（35 層を一度に広げると PC のメモリが 9GB を超えるため）</li>
+          </ul>
+        </div>
+
+        <div class="grp" style="margin-top:12px">
+          <span class="grp-label">写しの量子化・変換の道具（元: EdgeSLM_AndroidGemma4、さらに元は EdgeSLM_Android。中身は変えず、2026-10-18 に説明のコメントだけ足した）— Phase 2 の quantize_vit・build_vit_ctx と Phase 5 の build_t16 の両方が呼ぶ</span>
+          <div class="grid2">
+            <div class="node node--custom">
+              <div class="nh"><span class="nn">S2〜S4 前処理・較正・量子化</span><span class="ch">7</span></div>
+              <ul class="files">
+                <li><code>p2b_ops.py</code><span class="cp">写し</span>この段のまとめ役。prepare が書き換え → 較正 → 量子化 → 検査を順に呼び、どの段で落ちたかを記録する。finalize は EPContext で包んで C-2〜C-4 を検査</li>
+                <li><code>preprocess.py</code><span class="cp">写し</span>S2。BatchNorm の畳み込み（C-5）とグラフの書き換え（極端な定数・Expand・RMSNorm・左右入替など）</li>
+                <li><code>calib.py</code><span class="cp">写し</span>S3。量子化器に較正データを渡す読み出し口。値域の端を出すため合成パターンも混ぜる</li>
+                <li><code>quantize_qdq.py</code><span class="cp">写し</span>S4。get_qnn_qdq_config で QNN 向けの設定を作り、ORT の量子化器で Q/DQ を挿す（A16W8）</li>
+              </ul>
+            </div>
+            <div class="node node--custom">
+              <div class="nh"><span class="nn">v68 の制約に合わせる・検査・包む</span><span class="ch">7・8</span></div>
+              <ul class="files">
+                <li><code>weight_percg.py</code><span class="cp">写し</span>重みを per-channel にする指定を作り、出来たモデルで本当にそうなったか数える</li>
+                <li><code>fix_norm_gamma.py</code><span class="cp">写し</span>RMSNorm の gamma を符号付き 16bit に収まる形で量子化し直す（C-13）</li>
+                <li><code>downgrade_actact_rhs.py</code><span class="cp">写し</span>act×act の MatMul の右辺だけを uint8 に落とす（v68 は u16×u16 を作れない。C-8）</li>
+                <li><code>verify_artifacts.py</code><span class="cp">写し</span>C-1〜C-5 の違反を機械で数え、違反したノードを並べる。失敗したら次の段へ進ませない</li>
+                <li><code>wrap_epctx.py</code><span class="cp">写し</span>S8。context binary を ORT の QNN EP が読める EPContext の ONNX で包む（embed=False で呼ぶ）</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="side">
+          <span class="side-label">調べる・測る道具（PC 側。本番の流れには入らない）</span>
+          <div class="grid2" style="margin-top:6px">
+            <div class="node node--probe">
+              <div class="nh"><span class="nn">端末でだけ壊れる画像エンコーダ（Phase 2-4）</span><span class="ch">8</span></div>
+              <ul class="files">
+                <li><code>probe_vit.py</code>途中の値も出力に足した「探り用」の画像エンコーダ（2 層版・16 層版）を作り、端末と PC の QDQ を途中ごとに比べる。パッチの埋め込みのほぼ 0 の重みのチャネル（222 本）が NPU で表せないこと（C-14）をこれで見つけた</li>
+              </ul>
+            </div>
+            <div class="node node--probe">
+              <div class="nh"><span class="nn">16 トークン版の答えのずれ（2026-09-30〜10-03）</span><span class="ch">10</span></div>
+              <ul class="files">
+                <li><code>diag_t16.py</code>同じ量子化済みグラフを PC の CPU だけで解かせ、HF との一致が下がった原因がグラフか端末での実行かを分ける</li>
+                <li><code>probe_t16.py</code>同じ入力を端末の NPU と PC の CPU に通して、logits・K/V を比べる</li>
+                <li><code>probe_l0.py</code>層 0 だけを切り出した小さなグラフで、どの計算でずれるかを探す</li>
+                <li><code>probe_fix.py</code>層 0 の小さなグラフで、ずれの直し方（正規化の書き方・tanh の形）を試す</li>
+                <li><code>probe_rows.py</code>同じトークンを「まとまりの中の行」と「1 行だけ」で比べる（--self は NPU どうしで、CPU を基準にしない）</li>
+                <li><code>build_t16fix.py</code>書き直した版（t16f）と tanh だけ直した版（t16t）を作って変換する。どちらも不採用</li>
+                <li><code>diag_t16fix.py</code>書き直した版が PC の CPU で元の版と同じ計算にならない理由を調べる</li>
+              </ul>
+              <div class="nd" style="margin-top:4px">結論（2026-10-03）: 基準にした PC の CPU の方が、画像の行で正規化の途中の値が切れて誤っていた。NPU の RmsNorm は正確で、元の 16 トークン版をそのまま使う</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───────── 受け渡し ───────── -->
+    <div class="col mid">
+      <div class="col-head">受け渡し<span class="col-sub">USB の adb。APK を作り直さずにモデル・設定・job を差し替える（システム設計書 5・6 章）</span></div>
+      <div class="col-body">
+        <div class="node node--data">
+          <div class="nh"><span class="nn">モデル（画像エンコーダ）</span><span class="ch">3・7</span></div>
+          <div class="nd"><code>vit_b70_21x30_nosrq_epctx.onnx</code>（517 バイト）＋ context binary <code>.bin</code>（165.4MiB）。入力 pixel_values [1,630,768] → 特徴 [1,70,1536]</div>
+          <span class="nf">→ files/models/vit/</span>
+        </div>
+        <div class="lr">adb push →</div>
+        <div class="node node--data">
+          <div class="nh"><span class="nn">モデル（文章側）と表・トークナイザ</span><span class="ch">10・11</span></div>
+          <div class="nd"><code>g4t16_W256_a16w8_rhs8_epctx.onnx</code> ＋ <code>g4t16_W256_ctx.SM8350.bin</code>（1,467.1MiB）。表（埋め込み 2bit・PLE 4bit・位置の cos/sin、約 1.3GB）と <code>tokenizer/</code> は、端末の中で Gemma4 のアプリの置き場から写す（約 2.8GB）。比べる用に 1 トークン版も置ける</div>
+          <span class="nf">→ files/models/ops/・files/tokenizer/</span>
+        </div>
+        <div class="lr">setup_vlm_demo が書く →</div>
+        <div class="node node--data">
+          <div class="nh"><span class="nn">デモの設定</span><span class="ch">9・11</span></div>
+          <div class="nd"><code>vlm_demo.json</code>: 文章側の job の基本形（モデル・表）・画像エンコーダ・格子 [21,30]・system 文「添付の画像を見て、質問に日本語で簡潔に答えてください。」・質問の候補 3 つ・max_new 96・止める ID</div>
+          <span class="nf">→ files/jobs/</span>
+        </div>
+        <div class="lr">adb shell am start -n …/org.edgeslm.demo.<wbr>RunnerHoldActivity →</div>
+        <div class="node node--data">
+          <div class="nh"><span class="nn">job 仕様と入力</span><span class="ch">9</span></div>
+          <div class="nd"><code>jobs/*.json</code>（task: generate_kv・infer・open・vlm_prep・memprobe）と、評価用の画像の特徴（<code>inputs/vlmfeat/</code>）・照合用の写真（<code>inputs/vlm/</code>）</div>
+          <span class="nf">→ files/jobs/・files/inputs/</span>
+        </div>
+        <div class="lr">← adb pull</div>
+        <div class="node node--data">
+          <div class="nh"><span class="nn">結果</span><span class="ch">9・11</span></div>
+          <div class="nd"><code>last_result.json</code>（job_id で見分ける）・<code>last_describe.json</code>・<code>out/vlm/</code> の特徴・logcat（タグ EdgeSLMVlm・EdgeSLMRunner）・画面の録画</div>
+          <span class="nf">← files/out/ → results/</span>
+        </div>
+        <div class="side">
+          <span class="side-label">端末の置き場所</span>
+          <p><code>/sdcard/Android/data/org.edgeslm.vlm/files/</code>。Gemma4 のアプリ（org.edgeslm.gemma4）とは別のアプリ・別の置き場。撮った写真は <code>/sdcard/Pictures/VLMDemo/</code>、録画は <code>/sdcard/Movies/VLMDemo/</code>。</p>
+        </div>
+        <div class="side">
+          <span class="side-label">PC から端末を動かす・測る道具</span>
+          <p>job を置いて画面（RunnerHoldActivity）を起こし、結果のファイルを 2 秒ごとに見る。プロセスが消えたら lmkd の行をログから拾い、30 秒待ってやり直す。</p>
+          <ul class="files">
+            <li><code>setup_vlm_demo.py</code>デモの準備。文章側のモデル・表・トークナイザを端末の中で写し、画像エンコーダ・16 トークン版を送り、vlm_demo.json を書く（--text t16・--system）</li>
+            <li><code>device_vit.py</code><span class="cp cp--mod">一部写し</span>adb の共通部品（job を送って結果を待つ・プロセスの監視・メモリ待ち）と、画像エンコーダの照合・時間・メモリ・同居の確認。adb・md5 の小さな関数は Gemma4 の device_small.py などから</li>
+            <li><code>device_vlm.py</code>端末でつないだ VLM の照合: prep（前処理が PC とビット一致するか）・eval（端末だけで 126 問）・uicheck（画面が作るプロンプトと時間）・holdcheck（開くときに OS に止められないか）</li>
+            <li><code>record_demo.py</code>デモの画面を録画して PC に保存する（同じ時間のログも残す。Phase 5 の前後で比べるため）</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───────── 端末 ───────── -->
+    <div class="col">
+      <div class="col-head">端末 — VLM 検証アプリ org.edgeslm.vlm<span class="col-sub">Xperia 5 III（SOG05）・Snapdragon 888 / SM8350・HTP v68・Android 13・RAM 8GB／android_app/（2026-09-29 に EdgeSLM_AndroidGemma4 のアプリを写し、機能を足した。元のアプリは変えない）</span></div>
+      <div class="col-body">
+
+        <div class="node node--custom">
+          <div class="nh"><span class="nn">VlmActivity（画面「VLM デモ」）</span><span class="ch">9・11</span></div>
+          <div class="nd">ランチャーの入口。撮影はカメラアプリに頼む（カメラの権限は持たない）→ 読み込み・前処理 → 画像エンコーダの job → 質問（候補 3 つ・入力欄）→ 1 語ずつ表示。文章側（1,467MiB）をこの主プロセスで開いたまま持ち、開き終えたら画像エンコーダも「開くだけ」の job で先に開く（開くときのメモリの山を重ねない）</div>
+          <ul class="files">
+            <li><code>VlmActivity.kt</code>写真を撮って日本語で質問すると NPU だけで答える画面（新規）。写真 → 前処理 → 画像エンコーダ（別プロセス）→ 文章側の generate_kv（画像の特徴つき）→ 1 語ずつ表示 → 技術情報の 1 行</li>
+            <li><code>Gemma4Tokenizer.kt</code><span class="cp">写し</span>Gemma 4 の BPE トークナイザ（語彙 262,144）を端末で動かす。プロンプトを ID にし、答えの ID を文字に戻す</li>
+          </ul>
+        </div>
+        <div class="arrow">nativeVlmPrep（JNI）</div>
+
+        <div class="node node--custom">
+          <div class="nh"><span class="nn">画像の前処理（C++、CPU）</span><span class="ch">3・9</span></div>
+          <div class="nd">PC の評価（hf_vlm の固定の格子）と<strong>同じ値</strong>になるように書いた。「近い」ではなく「同じ」を目安にしたのは、答えが変わったときに原因が前処理か NPU かを分けられるようにするため</div>
+          <ul class="files">
+            <li><code>vlm_prep.h</code>写真の RGB → pixel_values [N, 768] の手順（縮小・黒い余白・パッチの並び）の説明と宣言（新規）</li>
+            <li><code>vlm_prep.cpp</code>本体（新規）。Pillow と同じ縮め方（横 → 縦の 2 回、係数は 22bit の固定小数点）→ 黒に貼ってパッチに並べる → job から呼ぶ入口</li>
+          </ul>
+        </div>
+        <div class="arrow">pixel_values をファイルで → infer の job</div>
+
+        <div class="grp">
+          <span class="grp-label">別プロセス :probe — 画像エンコーダ（NPU のメモリはプロセスごとに約 1,710MiB までなので、文章側と分ける）</span>
+          <div class="node node--custom">
+            <div class="nh"><span class="nn">RunnerService2 ＋ 画像エンコーダ（152MiB）</span><span class="ch">3・9</span></div>
+            <div class="nd">画面から infer・open の job を受け、画像エンコーダを開いたまま動かす（1.1 秒のうち NPU は 0.2 秒で、残りは開く時間だったため）。OS に止められても、次の写真で開き直す</div>
+            <ul class="files">
+              <li><code>Probe2.kt</code><span class="cp">写し</span>RunnerActivity2・RunnerService2。中身を足さない薄い継承で、マニフェストで <code>android:process=":probe"</code> を付けるためだけにある（元は「2 プロセスで同時に開けるか」の確認用）</li>
+            </ul>
+          </div>
+        </div>
+        <div class="arrow">特徴 [70,1536] をファイルで返す</div>
+
+        <div class="node node--custom">
+          <div class="nh"><span class="nn">JNI の境界</span><span class="ch">9</span></div>
+          <div class="nd">引数も戻り値も JSON 文字列（項目を足しても Kotlin を触らずに済む）。このプロジェクトでは前処理の入口 nativeVlmPrep を足した</div>
+          <ul class="files">
+            <li><code>NativeBridge.kt</code><span class="cp cp--mod">写し＋変更</span>Kotlin 側の JNI の宣言（nativeCreate・RunJob・Progress・Cancel・Destroy など）。nativeVlmPrep を足した</li>
+            <li><code>edgeslm_jni.cpp</code><span class="cp cp--mod">写し＋変更</span>C++ 側の JNI。JSON 文字列と C++ の呼び出しをつなぐだけ。nativeVlmPrep を足した</li>
+            <li><code>CMakeLists.txt</code><span class="cp cp--mod">写し＋変更</span>libedgeslm_runner.so の組み立て方（NDK・arm64-v8a・C++17）。vlm_prep.cpp を足した</li>
+          </ul>
+        </div>
+        <div class="arrow"></div>
+
+        <div class="grp">
+          <span class="grp-label">C++ の推論の中心（runner/）</span>
+          <div class="node node--custom">
+            <div class="nh"><span class="nn">job の実行 — generate_kv に画像の特徴</span><span class="ch">9・10</span></div>
+            <div class="nd">プロンプトの画像トークン（258880）の位置に特徴の行を入れる（PLE は pad の行）。モデルの入口が [1,16,H] なら複数トークンの経路を自動で選び、16 個ずつ読んで、past を左へずらし新しい行を右端に書く。1 トークン版の経路は変えていない</div>
+            <ul class="files">
+              <li><code>job.cpp</code><span class="cp cp--mod">写し＋変更</span>run_job() が task で処理を分ける（probe・bench・op_check・infer・generate・generate_kv。open・vlm_prep・memprobe・tokenize は RunnerService が先に分ける）。Phase 3 で画像の特徴の差し込み（image_features）、Phase 5 で複数トークンの経路を足した</li>
+              <li><code>job.h</code><span class="cp">写し</span>task の一覧と、なぜ task で分けるか（検証を足すたびに APK を作り直さないため）</li>
+            </ul>
+          </div>
+          <div class="node node--custom">
+            <div class="nh"><span class="nn">セッション・途中経過・メモリ</span><span class="ch">3・9</span></div>
+            <div class="nd">QNN EP の strict（CPU への逃げ道なし）で開けたら「全部 NPU」。画面は途中経過を 50ms ごとに読む</div>
+            <ul class="files">
+              <li><code>session.cpp／session.h</code><span class="cp">写し</span>ORT を dlopen で読み、QNN EP（HTP）でモデルを開いて推論する。開いたときの配置と入出力の形を describe() で返す</li>
+              <li><code>progress.cpp／progress.h</code><span class="cp">写し</span>生成の途中経過の共有状態。job.cpp が 1 語ごとに書き、画面が nativeProgress で読む（コールバックではなくポーリング）</li>
+              <li><code>memprobe.cpp／memprobe.h</code><span class="cp">写し</span>モデルを開く前後の RSS・dma-buf（NPU と共有するメモリ）を記録する。device_vit mem が画像エンコーダのメモリを測るのに使う</li>
+            </ul>
+          </div>
+        </div>
+        <div class="arrow"></div>
+
+        <div class="node node--custom">
+          <div class="nh"><span class="nn">PC からの job の入口（評価・照合用）</span><span class="ch">9</span></div>
+          <div class="nd">1.5GB を開く間は一時的に約 3GB 使い、画面の無い裏側（優先度 50）だと OS（lmkd）に止められることがある（10 回中 3 回）。画面を前に出したまま開くと 5/5 止められなかった</div>
+          <ul class="files">
+            <li><code>RunnerHoldActivity.kt</code>画面を前に出したまま job を動かす入口（新規）。RunnerService を起こし、結果のファイルが書かれたら自分で閉じる</li>
+            <li><code>RunnerActivity.kt</code><span class="cp">写し</span>画面を持たない入口。Android 12 以降は裏から Foreground Service を起動できないので、ここから起動する（前の検証の再現のため変えない）</li>
+            <li><code>RunnerService.kt</code><span class="cp cp--mod">写し＋変更</span>job.json を読み、JNI を呼び、結果をファイルに書く。vlm_prep をモデルを開かずに処理する分岐・keep_session（開いたまま）・open を足した</li>
+            <li><code>JsonInject.kt</code><span class="cp">写し</span>Kotlin でしか取れない 2 つのパス（base_dir・native_lib_dir）を job に足し、extras の上書きを当てる</li>
+          </ul>
+        </div>
+        <div class="arrow"></div>
+
+        <div class="node node--fw">
+          <div class="nh"><span class="nn">ONNX Runtime ＋ QNN Execution Provider</span><span class="ch">3</span></div>
+          <div class="nd">EPContext のノードは中の context binary をそのまま QNN に渡す。両方のモデルとも CPU への逃げ道なし（strict）で開く</div>
+          <ul class="files">
+            <li><code>libs/onnxruntime-android-qnn-1.27.0.aar</code>既存の ONNX Runtime（libonnxruntime.so）と QNN EP。中身は変えずにそのまま使う（Gemma4 のアプリと同じもの）</li>
+          </ul>
+        </div>
+        <div class="arrow"></div>
+
+        <div class="node node--vendor">
+          <div class="nh"><span class="nn">QNN HTP バックエンド</span><span class="ch">3</span></div>
+          <div class="nd">APK に同梱し、QAIRT 2.48 で版をそろえる（Gemma4 のアプリと同じもの）。libcdsprpc.so を uses-native-library で宣言</div>
+          <span class="nf">jniLibs/arm64-v8a/</span>
+          <ul class="files">
+            <li><code>libQnnHtp.so</code>HTP バックエンドの本体（CPU 側）。QNN EP はこれを読む</li>
+            <li><code>libQnnHtpPrepare.so</code>グラフを HTP 向けに組み立てる部分（その場でグラフを準備するときに使う）</li>
+            <li><code>libQnnHtpV68Stub.so</code>CPU 側から DSP 側の Skel を呼ぶ窓口（v68 用）</li>
+            <li><code>libQnnHtpV68Skel.so</code>DSP（CDSP）の上で実際に計算する部分（v68 用）</li>
+            <li><code>libQnnSystem.so</code>context binary のメタデータを読む補助</li>
+          </ul>
+        </div>
+        <div class="arrow">FastRPC（libcdsprpc.so）</div>
+
+        <div class="node node--vendor">
+          <div class="nh"><span class="nn">CDSP → HTP v68（NPU）</span><span class="ch">8・10</span></div>
+          <div class="nd">整数で計算する。PC の QDQ は丸めは真似るが NPU の計算の限界は真似ないので、小さすぎる重みのスケールは端末でだけ壊れた（C-14）。融合した RmsNorm は理想の計算と 0.1% 未満で一致する（2026-10-03）</div>
+          <span class="nf">libQnnHtpV68Skel.so（DSP 側）</span>
+        </div>
+
+        <div class="side">
+          <span class="side-label">写したまま残っているもの（VLM の流れでは使わない。ランチャーにも出ない）</span>
+          <ul class="files">
+            <li><code>ChatActivity.kt</code><span class="cp">写し</span>文章だけのチャット画面（EdgeSLM_AndroidScale の成果のデモ）。このアプリにはチャット用のモデルを置かないので、ランチャーから外した</li>
+            <li><code>DemoActivity.kt</code><span class="cp">写し</span>窓ずらしの生成のデモ画面（技術者向け）</li>
+            <li><code>KvDemoActivity.kt</code><span class="cp">写し</span>KV キャッシュ版のデモ画面（技術者向け）</li>
+            <li><code>Qwen2Tokenizer.kt</code><span class="cp">写し</span>Qwen2 の byte-level BPE トークナイザ（Qwen のモデル用）</li>
+            <li><code>TokenizerCheck.kt</code><span class="cp">写し</span>端末のトークナイザが HF と同じ ID 列を出すかを端末の上で確かめる（task: tokenize）</li>
+          </ul>
+        </div>
+
+        <div class="side">
+          <span class="side-label">要件定義書・README の計画と実際のソースの違い</span>
+          <ul>
+            <li>要件定義書 3 章は「射影層を NPU か CPU か Phase 2 で決める」としていた → <strong>射影層まで画像エンコーダのグラフに入れて NPU</strong>（vit_graph.py の出力が [1,70,1536]）。</li>
+            <li>要件定義書 3 章の文章側は「既存のグラフ」（Gemma4 の 1 トークン版）→ いまの既定は <strong>Phase 5 でこのプロジェクトが作った 16 トークン版 g4t16_W256</strong>（1 トークン版は比べる用）。</li>
+            <li>Phase 4（用途別の評価・連続フレーム・発熱）は未着手。capture_vit.py には 280 トークン・縦長の格子（--budget 280・--portrait）の入口があるが、端末用の版（2-6）はまだ無い。</li>
+            <li>README の「構成」の表は android_app を「applicationId・表示名だけ変えた」と書くが、その後 Phase 3・5 で job.cpp・RunnerService.kt などを変え、VlmActivity・RunnerHoldActivity・vlm_prep を足した（引き継ぎ一覧 2.1 節には記録あり）。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <h2>関係するプロジェクト（箱だけ）</h2>
+    <div class="cards">
+      <div class="card"><h3>EdgeSLM_Android</h3><p>おおもとの土台。v68 の制約 C-1〜C-13 と、量子化・変換の道具（p2b_ops・preprocess・quantize_qdq など）と端末の実行アプリの元。知見は再調査せずに使う。</p></div>
+      <div class="card"><h3>EdgeSLM_AndroidGemma4（写し元）</h3><p>前の段。Gemma 4 E2B の文章側を全部 NPU で動かし、端末のトークナイザまで済ませた。モデル・表・1 トークン版の量子化済み ONNX は<strong>読むだけ</strong>、道具とアプリは写して使う（md5 は引き継ぎ一覧）。</p></div>
+      <div class="card"><h3>EdgeSLM_AndroidScale</h3><p>NPU のメモリ上限（プロセスごと約 1,710MiB）・開く間は約 3GB 使う・画面が前なら lmkd に止められない、の出どころ。画像エンコーダを別プロセスに置く根拠。</p></div>
+      <div class="card"><h3>EdgeSLM_MultiHead_Multi ／ EdgeSLM_Android の venv</h3><p>PC の Python 環境を借りる（$PY1・$PY2）。パッケージは変えない。</p></div>
+      <div class="card"><h3>EdgeSLM_AndroidVLMSpec（後の段）</h3><p>このシステムに投機的デコード（Gemma 4 の MTP drafter）を足す別の検証。このプロジェクトとは分けて記録する。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>部品と StudyMemo の章の対応</h2>
+    <div class="tablewrap">
+    <table>
+      <thead><tr><th>章</th><th>主に扱う部品</th><th>入口になるソース</th></tr></thead>
+      <tbody>
+        <tr><td>0 用語集</td><td>パッチ・画像トークン・射影層・プーリング・PLE・レターボックスなどの語</td><td>—</td></tr>
+        <tr><td>1 VLM の構造</td><td>ViT → 射影層 → LLM。「射影層を足すだけ」が成り立つ条件</td><td><code>vlm_common.py</code>・<code>hf_vlm.py</code></td></tr>
+        <tr><td>2 Gemma 4 E2B の画像の通り道</td><td>336×480 → 630 パッチ → 70 トークン、√768、文章側への入れ方（上の流れ ②〜⑤）</td><td><code>vit_graph.py</code>・<code>hf_vlm.py</code>（device_style_embeds）</td></tr>
+        <tr><td>3 NPU に載せるための設計</td><td>固定の格子とレターボックス・画像トークン数と待ち時間・プロセスの分け方</td><td><code>vlm_prep.cpp</code>・<code>Probe2.kt</code>（:probe）・<code>session.cpp</code></td></tr>
+        <tr><td>4 量子化の目盛りと画像の特徴</td><td>文章だけで較正した入口の範囲 [−7.03, 3.52]、SRQ</td><td><code>onnx_scales.py</code>・<code>check_wiring.py</code></td></tr>
+        <tr><td>5 評価の組み立て</td><td>126 問の評価セット・自動判定・合成画像</td><td><code>eval_defs.py</code>・<code>fetch_eval_data.py</code>・<code>synth_images.py</code>・<code>judge.py</code></td></tr>
+        <tr><td>6 検算の考え方</td><td>「文章側は無改造で使える」を 3 通りの経路で確かめる</td><td><code>check_wiring.py</code>・<code>ref_vlm.py</code></td></tr>
+        <tr><td>7 画像エンコーダを書き直す</td><td>書き出し・量子化・QAT の値・変換（Phase 2）</td><td><code>capture_vit.py</code>・<code>vit_graph.py</code>・<code>export_vit.py</code>・<code>quantize_vit.py</code>・<code>qat_inject_vit.py</code>・<code>build_vit_ctx.py</code></td></tr>
+        <tr><td>8 端末でだけ壊れる</td><td>途中の値で切り分け、C-14（重みのスケールの下限）</td><td><code>probe_vit.py</code>・<code>device_vit.py</code>・<code>qat_inject_vit.py</code></td></tr>
+        <tr><td>9 端末でつなぐ</td><td>画面・前処理・画像の特徴の差し込み・lmkd と画面を前に出す入口（Phase 3）</td><td><code>VlmActivity.kt</code>・<code>vlm_prep.cpp</code>・<code>job.cpp</code>・<code>RunnerHoldActivity.kt</code>・<code>setup_vlm_demo.py</code>・<code>device_vlm.py</code></td></tr>
+        <tr><td>10 まとめ読み</td><td>prefill と decode・16 トークン版・窓とマスク・精度の切り分け（Phase 5）</td><td><code>g4t_graph.py</code>・<code>build_t16.py</code>・<code>check_t16.py</code>・<code>job.cpp</code>・<code>diag_t16.py</code>・<code>probe_t16.py</code>・<code>probe_rows.py</code></td></tr>
+        <tr><td>11 写真から答えまで</td><td>いまのスマホの VLM を端から端まで（上の流れ ①〜⑦ と実測の時間）</td><td><code>VlmActivity.kt</code>・<code>job.cpp</code>・<code>record_demo.py</code></td></tr>
+        <tr><td>12・13 ソースと動かし方・コードで読む検証</td><td>この図の各部品のソースの行番号・コマンド・結果ファイル</td><td><code>app/study/</code>（生成物）</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <span>参照: DoC/システム設計書.md</span>
+    <span>DoC/要件定義書.md</span>
+    <span>DoC/引き継ぎ一覧.md</span>
+    <span>DoC/基本設計_Phase1〜5.md</span>
+    <span>README.md</span>
+    <span>DoC/StudyMemo/02・11・12 章</span>
+    <span>results/P2_20260929_vit_ctx.md・P3_20260929_device_vlm.md・P5_20261003_t16_accuracy.md</span>
+  </footer>
+</div>
+</body>
+</html>

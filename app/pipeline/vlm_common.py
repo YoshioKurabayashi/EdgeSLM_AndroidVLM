@@ -3,6 +3,9 @@
 
 ここに書くのは「どのファイルがどこにあるか」「モデルの決まった数字」と、どのスクリプトでも使う小さな補助
 （出力の文字コード・JSON の書き込み）だけ。import しただけで何かが起きることはない（副作用なし）。
+
+（2026-10-18 追記）使い方: 各道具が `from app.pipeline import vlm_common as C` で読む。直接は動かさない。
+数字の解説は StudyMemo（EdgeSLM_AndroidVLM）01「VLM の構造」（部品の大きさ）・03「NPU に載せるための設計」（格子の表）。
 """
 from __future__ import annotations
 

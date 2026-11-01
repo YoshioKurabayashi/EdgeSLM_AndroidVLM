@@ -32,6 +32,13 @@ Phase 1 の venv には onnx が無い）。先に capture_vit.py（Phase 1 の 
 - 使っている演算の一覧を出し、v68 で問題になりうるもの（Expand・Gather・Where・Cast など）が無いかを確かめる
 
 結果は `results/P2_vit_export/{tag}_{cmd}.json`（数値）。
+
+## 実行の記録（2026-09-28、`results/P2_20260928_vit_export.md`。StudyMemo 7.6〜7.8 節）
+
+- check: 自前（SRQ なし）↔ HF（SRQ なし）の出力の相対 L2 最大 1.1e-5・平均 1.2e-6 → 合格。途中の値は層を追って 1e-7 → 1e-5 と滑らかに増える
+- ortcheck: ONNX（ORT CPU）↔ 自前は相対 L2 最大 1.1e-4・cos 0.99999999993。初めの目安 1e-4 をわずかに超えたので、
+  目安を「cos ≥ 0.999999 かつ 最大 ≤ 1e-3」に改めた（最後の層の大きな値で相対的に目立ったもの）
+- 自前（SRQ あり）↔ HF（SRQ あり）は記録だけ（SRQ の 8bit の境目で転ぶ揺れ。StudyMemo 7.8 節）
 """
 from __future__ import annotations
 
@@ -49,16 +56,19 @@ RES = C.RESULTS / "P2_vit_export"
 # v68 で動いている演算（EdgeSLM_AndroidGemma4 の P0D の 14 種 ＋ Sub・Softmax）。これ以外が出たら要確認
 EXPECTED_OPS = {"Add", "Sub", "Mul", "Div", "MatMul", "Reshape", "Transpose", "Slice", "Concat", "Neg", "Pow",
                 "ReduceMean", "Sqrt", "Reciprocal", "Softmax", "Tanh", "Constant"}
+# RISKY_OPS は v68 で問題になりうる演算と、その理由（C-1・C-10 などの禁止事項の番号は EdgeSLM_Android の StudyMemo の決まり）
 PASS_TOL = 1e-4                    # 合格の目安（上の表を参照）
 RISKY_OPS = {"Expand": "C-10（端末で 1002）", "Gather": "グラフ入力に直接つながると C-1", "Where": "要確認",
              "Cast": "float 以外の型が混ざる", "Range": "動的な形", "Shape": "動的な形", "If": "制御", "Loop": "制御"}
 
 
+# 予算と向きから、ファイル名の札（例: "b70_21x30"）と格子を返す。capture_vit と同じ札。
 def tag_for(budget: int, portrait: bool) -> tuple[str, tuple[int, int]]:
     grid = (C.PORTRAIT_GRIDS if portrait else C.FIXED_GRIDS)[budget]
     return f"b{budget}_{grid[0]}x{grid[1]}", grid
 
 
+# capture_vit が保存した評価用の npz（入力・HF の出力・途中の値）を辞書で読む。eval_qdq_vit・probe_vit も使う。
 def load_capture(tag: str) -> dict:
     p = C.CAPTURE / f"vit_{tag}.npz"
     if not p.exists():
@@ -76,6 +86,7 @@ def rel(a, b) -> dict:
     return {"rel_max": float(r.max()), "rel_mean": float(r.mean()), "cos": cos, "max_abs": float(np.abs(a - b).max())}
 
 
+# 自前の配線（VitGraph）を組んで返す。fold = ×√768 を eps に吸収した形にするか。
 def build(grid, fold=True):
     from app.pipeline.vit_graph import QatFile, VitGraph
     t0 = time.time()
@@ -85,6 +96,11 @@ def build(grid, fold=True):
 
 
 def check(a) -> dict:
+    """自前の配線を HF の正解（capture_vit）と突き合わせる（モジュールの説明の表の 1・2・4・6 行目と ×√768 の書き換え）。
+
+    引数: a = コマンドの引数（budget・portrait）。戻り値: 比べの結果の辞書（pass = SRQ なしの出力の相対 L2 最大が 1e-4 以下か）。
+    vit_graph.SRQ をこの中で切り替える（SRQ ありは丸めが 8bit の境目で転ぶので、記録だけ）。
+    """
     import torch
     from app.pipeline import vit_graph as V
     tag, grid = tag_for(a.budget, a.portrait)
@@ -94,6 +110,7 @@ def check(a) -> dict:
     E = len(cap["ids"])
     out = {"tag": tag, "grid": list(grid), "n_eval": E}
 
+    # 1 枚の pixel_values [N,768] を [1,N,768] にして流す（keep で途中の値も返す）
     def run(pix, keep=False):
         with torch.no_grad():
             return m.run(torch.from_numpy(pix[None]), keep=keep)
@@ -139,6 +156,7 @@ def check(a) -> dict:
     # SRQ あり・なしの HF どうしの差（SRQ そのものの大きさの目安）
     out["hf_srq_vs_nosrq"] = rel(cap["feat_srq"], cap["feat_nosrq"])
 
+    # 5) 合否と表示
     ok = out["nosrq_output"]["rel_max"] <= PASS_TOL
     print(f"\n[SRQ なし] 出力の相対L2 最大 {out['nosrq_output']['rel_max']:.2e}  平均 {out['nosrq_output']['rel_mean']:.2e}"
           f"  cos 最小 {out['nosrq_output']['cos_min']:.8f}  → {'合格' if ok else '★不合格'}（目安 {PASS_TOL:g}、理想 1e-5）")
@@ -158,6 +176,10 @@ def check(a) -> dict:
 
 
 def export(a) -> dict:
+    """自前の配線を ONNX に書き出し、演算・入出力・行列積の数を確かめ、量子化の設定（spec）と較正データを置く。
+
+    戻り値: 書き出しの記録（problems が空なら pass）。出力は work/ops/vit_{tag}/ の下（モジュールの説明「書き出しの約束」）。
+    """
     import onnx
     import torch
     from app.pipeline import vit_graph as V
@@ -178,6 +200,7 @@ def export(a) -> dict:
     t0 = time.time()
     torch.onnx.export(m, (x,), str(path), input_names=m.INPUT_NAMES, output_names=m.OUTPUT_NAMES,
                       dynamic_axes=None, opset_version=21, do_constant_folding=True, dynamo=True)
+    # 書き出した ONNX を読み直して見張る: 想定外の演算・入出力の形・入力を最初に使う演算・行列積の数
     mo = onnx.load(str(path), load_external_data=True)
     ops = Counter(n.op_type for n in mo.graph.node)
     extra = sorted(set(ops) - EXPECTED_OPS)
@@ -201,6 +224,7 @@ def export(a) -> dict:
     mm_aa = len(mm) - mm_w
     exp_w, exp_aa = C.VIT_LAYERS * 7 + 2, C.VIT_LAYERS * 2
     print(f"  行列積: 右辺が重み {mm_w}（想定 {exp_w}）・活性×活性 {mm_aa}（想定 {exp_aa}）")
+    # 入口は「2·(p − 0.5)」の Sub のはず（pixel_values が Reshape などに直接入ると ORT が量子化しない。C-1）
     N, M = grid[0] * grid[1], (grid[0] // C.POOL) * (grid[1] // C.POOL)
     io_ok = ins == [("pixel_values", [1, N, C.PATCH_DIM])] and outs == [("image_embeds", [1, M, C.TEXT_HIDDEN])]
     problems = []
@@ -236,6 +260,7 @@ def export(a) -> dict:
 
 
 def ortcheck(a) -> dict:
+    """書き出した ONNX を ORT の CPU（最適化なし）で動かし、自前の配線・HF（SRQ なし）と評価用 16 枚で比べる。"""
     import onnxruntime as ort
     import torch
     from app.pipeline import vit_graph as V
@@ -275,6 +300,7 @@ def ortcheck(a) -> dict:
     return out
 
 
+# check・export・ortcheck のどれかを動かし、results/P2_vit_export/{tag}_{cmd}.json に書く。
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["check", "export", "ortcheck"])
